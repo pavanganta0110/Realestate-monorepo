@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import {
   Table,
   TableBody,
@@ -34,6 +35,7 @@ type TenantUnit = {
   id: string;
   unitNumber: string;
   status: string;
+  user?: { id: string; email: string; status: string } | null;
   tenants: Array<{ id: string }>;
   property: { name: string };
 };
@@ -338,9 +340,12 @@ export default function AdminTenants() {
                 >
                   <TableCell className="py-4">
                     <div className="flex flex-col">
-                      <span className="font-bold text-foreground font-heading">
+                      <Link
+                        href={`/admin/tenants/${tenant.id}`}
+                        className="font-bold text-primary font-heading hover:underline"
+                      >
                         {tenant.firstName} {tenant.lastName}
-                      </span>
+                      </Link>
                       <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-1 font-heading">
                         ID: #{tenant.id.slice(-6).toUpperCase()}
                       </span>
@@ -376,9 +381,9 @@ export default function AdminTenants() {
                   </TableCell>
                   <TableCell className="py-4 text-right">
                     <span className="text-xs text-muted-foreground">
-                      {tenant.status === "invited"
-                        ? "Invitation pending"
-                        : "Portal enabled"}
+                      {tenant.user
+                        ? `Portal ${tenant.user.status.toLowerCase()}`
+                        : "No portal account"}
                     </span>
                   </TableCell>
                   <TableCell className="py-4 text-right">

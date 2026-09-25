@@ -25,20 +25,32 @@ describe('TenantsService', () => {
   });
 
   it('returns the bounded admin detail view and rejects missing tenants', async () => {
-    const tenant = { id: 'tenant-1' };
+    const tenant = {
+      id: 'tenant-1',
+      payments: [],
+      leases: [],
+      documents: [],
+      maintenanceRequests: [],
+    };
     const findUnique = jest
       .fn()
       .mockResolvedValueOnce(tenant)
       .mockResolvedValueOnce(null);
-    const service = serviceWith({ tenant: { findUnique } });
-    await expect(service.findOne(tenant.id)).resolves.toEqual(tenant);
+    const auditLog = { findMany: jest.fn().mockResolvedValue([]) };
+    const service = serviceWith({ tenant: { findUnique }, auditLog });
+    await expect(service.findOne(tenant.id)).resolves.toEqual({
+      ...tenant,
+      activity: [],
+    });
     await expect(service.findOne('missing')).rejects.toBeInstanceOf(
       NotFoundException,
     );
     expect(firstArgument(findUnique)).toMatchObject({
       where: { id: tenant.id },
       include: {
-        payments: { orderBy: { dueDate: 'desc' }, take: 24 },
+        payments: { orderBy: [{ dueDate: 'desc' }, { id: 'desc' }], take: 50 },
+        leases: { orderBy: [{ startDate: 'desc' }, { id: 'desc' }] },
+        documents: { select: { id: true } },
         maintenanceRequests: {
           orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
           take: 50,
@@ -48,7 +60,14 @@ describe('TenantsService', () => {
   });
 
   it('trims and audits tenant profile updates in one transaction', async () => {
-    const current = { id: 'tenant-1', status: 'invited' };
+    const current = {
+      id: 'tenant-1',
+      status: 'invited',
+      payments: [],
+      leases: [],
+      documents: [],
+      maintenanceRequests: [],
+    };
     const updated = { ...current, status: 'active', firstName: 'Taylor' };
     const tx = {
       tenant: { update: jest.fn().mockResolvedValue(updated) },
@@ -56,6 +75,7 @@ describe('TenantsService', () => {
     };
     const prisma = {
       tenant: { findUnique: jest.fn().mockResolvedValue(current) },
+      auditLog: { findMany: jest.fn().mockResolvedValue([]) },
       $transaction: jest.fn(
         async (callback: (client: typeof tx) => Promise<unknown>) =>
           callback(tx),
@@ -91,7 +111,14 @@ describe('TenantsService', () => {
   });
 
   it('preserves omitted optional profile fields during an admin update', async () => {
-    const current = { id: 'tenant-1', status: 'invited' };
+    const current = {
+      id: 'tenant-1',
+      status: 'invited',
+      payments: [],
+      leases: [],
+      documents: [],
+      maintenanceRequests: [],
+    };
     const updated = { ...current, status: 'active' };
     const tx = {
       tenant: { update: jest.fn().mockResolvedValue(updated) },
@@ -99,6 +126,7 @@ describe('TenantsService', () => {
     };
     const prisma = {
       tenant: { findUnique: jest.fn().mockResolvedValue(current) },
+      auditLog: { findMany: jest.fn().mockResolvedValue([]) },
       $transaction: jest.fn(
         async (callback: (client: typeof tx) => Promise<unknown>) =>
           callback(tx),

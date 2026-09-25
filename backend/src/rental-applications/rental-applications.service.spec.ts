@@ -123,7 +123,14 @@ describe('RentalApplicationsService', () => {
     expect(prisma.property.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         include: {
-          units: { where: { id: 'unit-1', status: 'vacant' } },
+          units: {
+            where: {
+              id: 'unit-1',
+              status: 'vacant',
+              rentAmount: { not: null },
+              depositAmount: { not: null },
+            },
+          },
         },
       }),
     );

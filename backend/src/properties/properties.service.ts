@@ -47,7 +47,11 @@ const publicRentalSelect = {
   publishedAt: true,
   updatedAt: true,
   units: {
-    where: { status: 'vacant' },
+    where: {
+      status: 'vacant',
+      rentAmount: { not: null },
+      depositAmount: { not: null },
+    },
     select: {
       id: true,
       unitNumber: true,
@@ -57,6 +61,7 @@ const publicRentalSelect = {
       rentAmount: true,
       depositAmount: true,
       availableDate: true,
+      amenities: true,
     },
     orderBy: [{ rentAmount: 'asc' as const }, { unitNumber: 'asc' as const }],
   },
@@ -111,7 +116,7 @@ export class PropertiesService {
       );
     }
     const availableUnits = property.units.filter(
-      (unit) => unit.status === 'vacant',
+      (unit) => unit.status === 'vacant' && unit.rentAmount != null,
     );
     if (
       property.status === 'active' &&
@@ -119,7 +124,7 @@ export class PropertiesService {
       availableUnits.length === 0
     ) {
       throw new BadRequestException(
-        'Add a property rent amount or at least one vacant unit before publishing',
+        'Add a property rent amount or at least one vacant unit with rent before publishing',
       );
     }
   }

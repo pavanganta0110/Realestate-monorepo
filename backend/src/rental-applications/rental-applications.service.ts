@@ -144,6 +144,8 @@ export class RentalApplicationsService {
           where: {
             id: data.unitId,
             status: 'vacant',
+            rentAmount: { not: null },
+            depositAmount: { not: null },
           },
         },
       },

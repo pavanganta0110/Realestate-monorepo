@@ -1,6 +1,6 @@
 {
   "projectRef": "xwrlpqakdndpnqqpfepz",
-  "verifiedAt": "2026-09-19",
+  "verifiedAt": "2026-09-25",
   "authority": "supabase_migrations.schema_migrations",
   "applied": [
     {
@@ -233,20 +233,38 @@
         "supabase/migrations/20260825033045_complete_lease_renewal_and_move_out_workflow.sql",
         "backend/prisma/migrations/20260825033045_complete_lease_renewal_and_move_out_workflow/migration.sql"
       ]
-    }
-  ],
-  "pending": [
+    },
     {
-      "version": "20260916172000",
-      "name": "complete_tenant_documents_and_notifications",
+      "version": "20260923184547",
+      "name": "add_unit_amenities_20260923175001",
       "sources": [
-        "supabase/migrations/20260916172000_complete_tenant_documents_and_notifications.sql",
-        "backend/prisma/migrations/20260916172000_complete_tenant_documents_and_notifications/migration.sql"
-      ],
-      "reason": "The tenant-document and notification implementation is locally validated and requires a reviewed Supabase production migration before these portal features can be enabled."
+        "supabase/migrations/20260923175001_add_unit_amenities.sql",
+        "backend/prisma/migrations/20260923175001_add_unit_amenities/migration.sql"
+      ]
+    },
+    {
+      "version": "20260925035208",
+      "name": "add_tenant_communication_ledger",
+      "sources": [
+        "supabase/migrations/20260924120000_add_tenant_communication_ledger.sql",
+        "backend/prisma/migrations/20260924120000_add_tenant_communication_ledger/migration.sql"
+      ]
+    },
+    {
+      "version": "20260925035901",
+      "name": "allow_incomplete_and_occupied_unit_records",
+      "sources": [
+        "backend/prisma/migrations/20260922160000_allow_incomplete_and_occupied_unit_records/migration.sql"
+      ]
     }
   ],
+  "pending": [],
   "legacyExceptions": [
+    {
+      "source": "supabase/migrations/20260916172000_complete_tenant_documents_and_notifications.sql",
+      "status": "schema_present_history_unreconciled",
+      "reason": "Tenant document, announcement, and notification columns and acknowledgement schema are present in the connected database, but this migration is absent from the authoritative Supabase migration ledger. Do not replay the DDL solely to repair history."
+    },
     {
       "source": "supabase/migrations/20260823164507_add_public_chatbot.sql",
       "status": "schema_present_history_unreconciled",

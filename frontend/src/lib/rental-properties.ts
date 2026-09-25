@@ -1,12 +1,13 @@
 type RentalUnit = {
   id: string;
   unitNumber: string;
-  bedrooms: number;
-  bathrooms: number;
-  squareFeet: number;
-  rentAmount: number;
-  depositAmount: number;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  squareFeet: number | null;
+  rentAmount: number | null;
+  depositAmount: number | null;
   availableDate?: string | null;
+  amenities: string[];
 };
 
 export type RentalProperty = {
@@ -34,7 +35,9 @@ export type RentalProperty = {
 };
 
 export function rentalPrice(property: RentalProperty) {
-  if (property.units.length > 0) return property.units[0].rentAmount;
+  if (property.units.length > 0 && property.units[0].rentAmount != null) {
+    return property.units[0].rentAmount;
+  }
   if (property.rentAmount != null) return Number(property.rentAmount);
   return null;
 }

@@ -38,6 +38,7 @@ export const EMAIL_TEMPLATE_KEYS = [
   'maintenance.completion_confirmed',
   'tenant_message.created',
   'tenant_message.admin_replied',
+  'tenant.custom_notice',
   'rental_application.submitted',
   'rental_application.status_updated',
   'owner.stripe_onboarding_invited',
@@ -395,6 +396,28 @@ export function renderEmailTemplate(
         'New message from management',
         `${hello}<p>Coach Johnson Realty replied to your tenant portal conversation.</p>${button('Open messages', values.url)}`,
       );
+    case 'tenant.custom_notice': {
+      const subject = String(values.subject ?? '')
+        .trim()
+        .replace(/[\r\n]+/g, ' ')
+        .slice(0, 180);
+      const message = String(values.message ?? '').slice(0, 10000);
+      const paragraphs = message
+        .split(/\n\s*\n/)
+        .map(
+          (paragraph) =>
+            `<p style="white-space:pre-wrap">${text(paragraph)}</p>`,
+        )
+        .join('');
+      return result(
+        key,
+        subject || 'Resident notice from Coach Johnson Realty',
+        String(values.category ?? '')
+          .trim()
+          .slice(0, 80) || 'Resident notice',
+        `${hello}${paragraphs}`,
+      );
+    }
     case 'rental_application.submitted':
       return result(
         key,

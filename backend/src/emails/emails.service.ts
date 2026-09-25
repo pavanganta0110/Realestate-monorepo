@@ -34,7 +34,12 @@ const STATUS_PRIORITY: Record<string, number> = {
   SUPPRESSED: 10,
 };
 
-type EmailPage = { cursor?: string; limit?: number; status?: string };
+type EmailPage = {
+  cursor?: string;
+  limit?: number;
+  status?: string;
+  tenantOnly?: boolean;
+};
 
 @Injectable()
 export class EmailsService {
@@ -94,6 +99,13 @@ export class EmailsService {
     templateKey: EmailTemplateKey,
     values: EmailTemplateVariables,
     eventKey?: string,
+    context: {
+      tenantId?: string;
+      propertyId?: string;
+      unitId?: string;
+      sentByUserId?: string;
+      batchId?: string;
+    } = {},
   ) {
     const recipient = to.trim().toLowerCase();
     if (!recipient) return null;
@@ -111,6 +123,7 @@ export class EmailsService {
           templateVersion: rendered.version,
           critical: rendered.critical,
           maxAttempts: rendered.maxAttempts,
+          ...context,
           idempotencyKey,
           providerIdempotencyKey: idempotencyKey,
           status: this.resend ? 'PENDING' : 'NOT_CONFIGURED',
@@ -234,9 +247,10 @@ export class EmailsService {
     return { claimed: due.length, sent: outcomes.filter(Boolean).length };
   }
 
-  async retryOne(id: string) {
+  async retryOne(id: string, tenantOnly = false) {
     const log = await this.prisma.emailLog.findUnique({ where: { id } });
-    if (!log) throw new NotFoundException('Email log not found');
+    if (!log || (tenantOnly && !log.tenantId))
+      throw new NotFoundException('Email log not found');
     if (
       SUCCESS_STATUSES.includes(log.status as (typeof SUCCESS_STATUSES)[number])
     ) {
@@ -291,7 +305,14 @@ export class EmailsService {
   async list(page: EmailPage = {}) {
     const limit = Math.min(Math.max(page.limit ?? 25, 1), 100);
     const rows = await this.prisma.emailLog.findMany({
-      where: page.status ? { status: page.status } : undefined,
+      where: page.tenantOnly
+        ? {
+            tenantId: { not: null },
+            ...(page.status ? { status: page.status } : {}),
+          }
+        : page.status
+          ? { status: page.status }
+          : undefined,
       select: this.adminSelect(),
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: limit + 1,

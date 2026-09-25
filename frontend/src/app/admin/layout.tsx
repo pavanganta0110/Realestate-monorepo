@@ -29,13 +29,10 @@ const rentalRoutePrefixes = [
   "/admin/maintenance",
   "/admin/vendors",
   "/admin/messages",
+  "/admin/emails",
   "/admin/announcements",
 ];
-const superRoutePrefixes = [
-  "/admin/emails",
-  "/admin/reports",
-  "/admin/tenant-administrators",
-];
+const superRoutePrefixes = ["/admin/reports", "/admin/tenant-administrators"];
 
 function matchesRoute(pathname: string, prefixes: string[]) {
   return prefixes.some((prefix) => pathname.startsWith(prefix));

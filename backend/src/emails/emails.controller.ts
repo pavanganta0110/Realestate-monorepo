@@ -1,11 +1,13 @@
 import {
   BadRequestException,
+  Body,
   Controller,
   Get,
   Headers,
   Param,
   Post,
   Query,
+  Request,
   RawBody,
   UnauthorizedException,
   UseGuards,
@@ -18,6 +20,9 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { EmailsService } from './emails.service';
+import { TenantCommunicationsService } from './tenant-communications.service';
+import { TenantCommunicationDto } from './dto/tenant-communication.dto';
+import type { RequiredAuthenticatedRequest } from '../auth/authenticated-request';
 
 @Controller('webhooks/resend')
 @SkipThrottle()
@@ -71,12 +76,45 @@ export class EmailRetryController {
 
 @Controller('admin/emails')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.SUPER_ADMIN)
+@Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN)
 export class AdminEmailsController {
-  constructor(private readonly emails: EmailsService) {}
+  constructor(
+    private readonly emails: EmailsService,
+    private readonly communications: TenantCommunicationsService,
+  ) {}
+
+  @Post('preview')
+  preview(@Body() body: TenantCommunicationDto) {
+    return this.communications.preview(body);
+  }
+
+  @Post('send')
+  send(
+    @Request() request: RequiredAuthenticatedRequest,
+    @Body() body: TenantCommunicationDto,
+  ) {
+    return this.communications.send(request.user.sub, body);
+  }
+
+  @Get('batches')
+  batches(@Query('limit') rawLimit?: string) {
+    return this.communications.batches(rawLimit ? Number(rawLimit) : undefined);
+  }
+
+  @Get('tenant/:tenantId')
+  tenantHistory(
+    @Param('tenantId') tenantId: string,
+    @Query('limit') rawLimit?: string,
+  ) {
+    return this.communications.tenantHistory(
+      tenantId,
+      rawLimit ? Number(rawLimit) : undefined,
+    );
+  }
 
   @Get()
   list(
+    @Request() request: RequiredAuthenticatedRequest,
     @Query('cursor') cursor?: string,
     @Query('limit') rawLimit?: string,
     @Query('status') status?: string,
@@ -85,11 +123,19 @@ export class AdminEmailsController {
     if (limit !== undefined && !Number.isInteger(limit)) {
       throw new BadRequestException('limit must be an integer');
     }
-    return this.emails.list({ cursor, limit, status });
+    return this.emails.list({
+      cursor,
+      limit,
+      status,
+      tenantOnly: request.user.role === Role.TENANT_ADMIN,
+    });
   }
 
   @Post(':id/retry')
-  retry(@Param('id') id: string) {
-    return this.emails.retryOne(id);
+  retry(
+    @Request() request: RequiredAuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    return this.emails.retryOne(id, request.user.role === Role.TENANT_ADMIN);
   }
 }

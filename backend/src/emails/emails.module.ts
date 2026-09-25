@@ -1,5 +1,6 @@
 import { Module, Global } from '@nestjs/common';
 import { EmailsService } from './emails.service';
+import { TenantCommunicationsService } from './tenant-communications.service';
 import { ConfigModule } from '@nestjs/config';
 import {
   AdminEmailsController,
@@ -15,7 +16,7 @@ import {
     EmailRetryController,
     AdminEmailsController,
   ],
-  providers: [EmailsService],
+  providers: [EmailsService, TenantCommunicationsService],
   exports: [EmailsService],
 })
 export class EmailsModule {}

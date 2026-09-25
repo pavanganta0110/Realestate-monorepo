@@ -29,7 +29,9 @@ function RentalApplicationPageContent() {
   const [form, setForm] = useState<RentalApplicationForm>({
     ...emptyRentalApplicationForm,
   });
-  const [application, setApplication] = useState<RentalApplication | null>(null);
+  const [application, setApplication] = useState<RentalApplication | null>(
+    null,
+  );
   const [selectedUnitId, setSelectedUnitId] = useState(requestedUnitId ?? "");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -42,7 +44,8 @@ function RentalApplicationPageContent() {
         if (active) setProperty(result);
       })
       .catch((error: unknown) => {
-        if (active) toast.error(getErrorMessage(error, "Rental is unavailable"));
+        if (active)
+          toast.error(getErrorMessage(error, "Rental is unavailable"));
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -79,8 +82,14 @@ function RentalApplicationPageContent() {
     return (
       <div className="min-h-dvh bg-background">
         <SiteHeader />
-        <main id="main-content" className="flex min-h-[70dvh] items-center justify-center">
-          <Loader2 className="size-7 animate-spin text-primary" aria-label="Loading rental" />
+        <main
+          id="main-content"
+          className="flex min-h-[70dvh] items-center justify-center"
+        >
+          <Loader2
+            className="size-7 animate-spin text-primary"
+            aria-label="Loading rental"
+          />
         </main>
       </div>
     );
@@ -92,7 +101,11 @@ function RentalApplicationPageContent() {
         <SiteHeader />
         <main id="main-content" className="public-container py-20 text-center">
           <h1 className="text-3xl font-semibold">This rental is unavailable</h1>
-          <Button className="mt-6" nativeButton={false} render={<Link href="/rentals" />}>
+          <Button
+            className="mt-6"
+            nativeButton={false}
+            render={<Link href="/rentals" />}
+          >
             Browse rentals
           </Button>
         </main>
@@ -103,7 +116,10 @@ function RentalApplicationPageContent() {
   return (
     <div className="min-h-dvh bg-background">
       <SiteHeader />
-      <main id="main-content" className="public-container py-8 sm:py-12 lg:py-16">
+      <main
+        id="main-content"
+        className="public-container py-8 sm:py-12 lg:py-16"
+      >
         <Link
           href={`/rentals/${property.id}`}
           className="focus-ring inline-flex min-h-11 items-center gap-2 rounded-full text-sm font-semibold text-muted-foreground hover:text-foreground"
@@ -112,7 +128,9 @@ function RentalApplicationPageContent() {
           Back to property
         </Link>
         <div className="mt-7 max-w-3xl">
-          <p className="text-sm font-semibold text-primary">Rental application</p>
+          <p className="text-sm font-semibold text-primary">
+            Rental application
+          </p>
           <h1 className="mt-2 text-4xl font-semibold tracking-[-0.045em] sm:text-5xl">
             Apply for {property.name}
           </h1>
@@ -136,7 +154,10 @@ function RentalApplicationPageContent() {
           <form onSubmit={create} className="mt-10 max-w-4xl">
             {property.units.length > 0 ? (
               <div className="mb-8 max-w-md">
-                <label htmlFor="application-unit" className="text-sm font-medium">
+                <label
+                  htmlFor="application-unit"
+                  className="text-sm font-medium"
+                >
                   Available unit
                 </label>
                 <select
@@ -149,7 +170,10 @@ function RentalApplicationPageContent() {
                   <option value="">Select a unit</option>
                   {property.units.map((unit) => (
                     <option key={unit.id} value={unit.id}>
-                      Unit {unit.unitNumber} · ${unit.rentAmount.toLocaleString()}/month
+                      Unit {unit.unitNumber} · $
+                      {unit.rentAmount?.toLocaleString() ??
+                        "Contact for pricing"}
+                      /month
                     </option>
                   ))}
                 </select>
@@ -159,7 +183,10 @@ function RentalApplicationPageContent() {
             <ApplicationFormFields form={form} onChange={setForm} />
 
             <div className="mt-8 flex items-start gap-3 border-t border-border pt-6 text-sm leading-6 text-muted-foreground">
-              <LockKeyhole className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden="true" />
+              <LockKeyhole
+                className="mt-0.5 size-5 shrink-0 text-primary"
+                aria-hidden="true"
+              />
               <p>
                 Your application details are private and available only to
                 authorized Johnson Realty rental staff. Never enter a Social

@@ -31,15 +31,48 @@ export class TenantsService {
       where: { id },
       include: {
         ...tenantInclude,
-        payments: { orderBy: { dueDate: 'desc' }, take: 24 },
+        leases: { orderBy: [{ startDate: 'desc' }, { id: 'desc' }] },
+        payments: { orderBy: [{ dueDate: 'desc' }, { id: 'desc' }], take: 50 },
         maintenanceRequests: {
           orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
           take: 50,
         },
+        documents: { select: { id: true } },
       },
     });
     if (!tenant) throw new NotFoundException('Tenant not found');
-    return tenant;
+    const activity = await this.prisma.auditLog.findMany({
+      where: {
+        OR: [
+          {
+            resourceId: id,
+            resource: { in: ['tenant', 'tenant_message_thread'] },
+          },
+          {
+            resource: 'payment',
+            resourceId: { in: tenant.payments.map((payment) => payment.id) },
+          },
+          {
+            resource: 'lease',
+            resourceId: { in: tenant.leases.map((lease) => lease.id) },
+          },
+          {
+            resource: 'tenant_document',
+            resourceId: { in: tenant.documents.map((document) => document.id) },
+          },
+          {
+            resource: 'maintenance_request',
+            resourceId: {
+              in: tenant.maintenanceRequests.map((request) => request.id),
+            },
+          },
+        ],
+      },
+      include: { user: { select: { id: true, email: true } } },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: 100,
+    });
+    return { ...tenant, activity };
   }
 
   async update(userId: string, id: string, data: UpdateTenantDto) {

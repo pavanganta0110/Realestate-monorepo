@@ -130,11 +130,16 @@ export function RentalListingCard({
 
         <div className="mt-4 flex items-center justify-between gap-4 text-sm">
           <span className="inline-flex items-center gap-2 text-muted-foreground">
-            <CircleDollarSign className="size-4 text-primary" aria-hidden="true" />
+            <CircleDollarSign
+              className="size-4 text-primary"
+              aria-hidden="true"
+            />
             Security deposit
           </span>
           <strong className="font-semibold text-foreground">
-            {unit ? formatCurrency(unit.depositAmount) : "Confirm with team"}
+            {unit?.depositAmount != null
+              ? formatCurrency(unit.depositAmount)
+              : "Confirm with team"}
           </strong>
         </div>
 

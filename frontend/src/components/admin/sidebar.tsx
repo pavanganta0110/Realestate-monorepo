@@ -193,7 +193,7 @@ const items = [
     title: "Email delivery",
     icon: MailCheck,
     href: "/admin/emails",
-    area: "super",
+    area: "rent",
     group: "Company tools",
   },
   {

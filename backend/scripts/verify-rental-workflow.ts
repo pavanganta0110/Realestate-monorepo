@@ -603,7 +603,7 @@ async function main() {
     'MAINTENANCE_REQUEST_UPDATED',
     'MAINTENANCE_COMPLETION_CONFIRMED',
     'TENANT_MESSAGE_SENT',
-    'TENANT_ADMIN_MESSAGE_SENT',
+    'TENANT_CHAT_SENT',
     'TENANT_MESSAGES_READ',
   ]) {
     assert(auditCount(action) >= 1, `Missing Phase 6 audit event ${action}`);

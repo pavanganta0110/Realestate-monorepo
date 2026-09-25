@@ -7,9 +7,9 @@ export const repositoryStandards = {
         "Cohesive Verdocs envelope orchestration with provider state transitions, archival, webhook handling, and audit guarantees.",
     },
     "backend/src/emails/emails.service.ts": {
-      maxLines: 900,
+      maxLines: 925,
       reason:
-        "Cohesive transactional delivery boundary covering persistence, Resend delivery, retries, templates, and signed webhook state.",
+        "Cohesive transactional email boundary covering persistence, Resend delivery, tenant metadata, scoped retries, templates, and signed webhook state.",
     },
     "backend/src/listings/sale-listings.service.ts": {
       maxLines: 750,

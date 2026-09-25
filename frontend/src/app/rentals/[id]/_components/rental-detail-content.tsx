@@ -82,7 +82,8 @@ function PropertyFacts({ property }: RentalDetailContentProps) {
     },
     {
       label: "Availability",
-      value: property.status === "rented" ? "Rented" : availability ?? "Ask us",
+      value:
+        property.status === "rented" ? "Rented" : (availability ?? "Ask us"),
       icon: CalendarDays,
     },
   ];
@@ -123,7 +124,8 @@ function AvailableUnits({ property }: RentalDetailContentProps) {
           </p>
         </div>
         <span className="text-sm font-semibold text-primary">
-          {property.units.length} {property.units.length === 1 ? "unit" : "units"}
+          {property.units.length}{" "}
+          {property.units.length === 1 ? "unit" : "units"}
         </span>
       </div>
       <div className="mt-6 overflow-hidden rounded-[1.25rem] border border-border bg-card">
@@ -131,25 +133,47 @@ function AvailableUnits({ property }: RentalDetailContentProps) {
           <div
             key={unit.id}
             className="grid gap-5 p-5 sm:grid-cols-[1fr_auto] sm:items-center sm:p-6"
-            style={index > 0 ? { borderTop: "1px solid var(--border)" } : undefined}
+            style={
+              index > 0 ? { borderTop: "1px solid var(--border)" } : undefined
+            }
           >
             <div>
               <h3 className="font-semibold">
                 {unit.unitNumber ? `Unit ${unit.unitNumber}` : "Available home"}
               </h3>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                {unit.bedrooms} bed, {unit.bathrooms} bath, {unit.squareFeet.toLocaleString()} sq ft
+                {unit.bedrooms ?? "Ask"} bed, {unit.bathrooms ?? "Ask"} bath,{" "}
+                {unit.squareFeet?.toLocaleString() ?? "Ask"} sq ft
                 {formatDate(unit.availableDate)
                   ? `, available ${formatDate(unit.availableDate)}`
                   : ""}
               </p>
+              {unit.amenities.length > 0 ? (
+                <ul
+                  className="mt-3 flex flex-wrap gap-2"
+                  aria-label={`Features for unit ${unit.unitNumber}`}
+                >
+                  {unit.amenities.map((amenity) => (
+                    <li
+                      key={amenity}
+                      className="rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-foreground"
+                    >
+                      {amenity}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
             </div>
             <div className="sm:text-right">
               <p className="text-lg font-semibold">
-                {formatCurrency(unit.rentAmount)} / month
+                {unit.rentAmount == null
+                  ? "Contact for pricing"
+                  : `${formatCurrency(unit.rentAmount)} / month`}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                {formatCurrency(unit.depositAmount)} deposit
+                {unit.depositAmount == null
+                  ? "Deposit to be confirmed"
+                  : `${formatCurrency(unit.depositAmount)} deposit`}
               </p>
             </div>
           </div>
@@ -220,7 +244,7 @@ function InquiryPanel({ property }: RentalDetailContentProps) {
                 Deposit
               </dt>
               <dd className="text-right font-semibold">
-                {unit
+                {unit?.depositAmount != null
                   ? formatCurrency(unit.depositAmount)
                   : "Confirm with team"}
               </dd>

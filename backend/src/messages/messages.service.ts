@@ -53,8 +53,8 @@ export class MessagesService {
         },
       },
     });
-    if (!tenant?.user) throw new NotFoundException('Tenant thread not found');
-    return { ...tenant, user: tenant.user };
+    if (!tenant) throw new NotFoundException('Tenant thread not found');
+    return tenant;
   }
 
   private async messagesPage(
@@ -232,11 +232,17 @@ export class MessagesService {
     data: SendTenantMessageDto,
   ) {
     const tenant = await this.tenantThread(tenantId);
+    const tenantUser = tenant.user;
+    if (!tenantUser) {
+      throw new ServiceUnavailableException(
+        'This tenant does not have a linked portal account yet',
+      );
+    }
     const message = await this.prisma.$transaction(async (tx) => {
       const message = await tx.message.create({
         data: {
           senderId: userId,
-          receiverId: tenant.user.id,
+          receiverId: tenantUser.id,
           tenantId: tenant.id,
           subject: data.subject?.trim() || 'Coach Johnson Realty',
           body: data.body.trim(),
@@ -249,7 +255,7 @@ export class MessagesService {
       await tx.auditLog.create({
         data: {
           userId,
-          action: 'TENANT_ADMIN_MESSAGE_SENT',
+          action: 'TENANT_CHAT_SENT',
           resource: 'tenant_message_thread',
           resourceId: tenant.id,
           newValue: JSON.stringify({ messageId: message.id }),
@@ -270,10 +276,12 @@ export class MessagesService {
 
   async markReadForAdmin(userId: string, tenantId: string) {
     const tenant = await this.tenantThread(tenantId);
+    const tenantUser = tenant.user;
+    if (!tenantUser) return { markedRead: 0 };
     const now = new Date();
     const count = await this.prisma.$transaction(async (tx) => {
       const marked = await tx.message.updateMany({
-        where: { tenantId, senderId: tenant.user.id, readAt: null },
+        where: { tenantId, senderId: tenantUser.id, readAt: null },
         data: { isRead: true, readAt: now },
       });
       if (marked.count > 0) {

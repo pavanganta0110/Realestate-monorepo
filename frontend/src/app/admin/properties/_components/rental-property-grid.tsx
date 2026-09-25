@@ -5,6 +5,34 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { RentalProperty } from "./rental-property-types";
 
+function occupancySummary(units: RentalProperty["units"]) {
+  if (units.length === 0) return "No units recorded";
+
+  const counts = units.reduce<Record<string, number>>((result, unit) => {
+    const status = unit.status.toLowerCase();
+    result[status] = (result[status] ?? 0) + 1;
+    return result;
+  }, {});
+  const occupied = counts.occupied ?? 0;
+  const vacant = counts.vacant ?? 0;
+  const maintenance = counts.under_maintenance ?? 0;
+  const other = Object.entries(counts)
+    .filter(
+      ([status]) =>
+        !["occupied", "vacant", "under_maintenance"].includes(status),
+    )
+    .map(([status, count]) => `${count} ${status.replaceAll("_", " ")}`);
+
+  return [
+    `${occupied} occupied`,
+    vacant > 0 ? `${vacant} vacant` : null,
+    maintenance > 0 ? `${maintenance} under maintenance` : null,
+    ...other,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
 export function RentalPropertyGrid({
   properties,
   busy,
@@ -57,7 +85,11 @@ export function RentalPropertyGrid({
                 </Badge>
               </div>
               <p className="mt-4 text-sm text-muted-foreground">
-                {property.units.length} units · {property.status}
+                {property.units.length} units · Property status:{" "}
+                {property.status}
+              </p>
+              <p className="mt-1 text-sm font-medium">
+                Occupancy: {occupancySummary(property.units)}
               </p>
               <div className="mt-5 flex flex-wrap gap-2">
                 <Button

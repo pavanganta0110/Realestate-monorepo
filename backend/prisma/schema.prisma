@@ -408,6 +408,8 @@ model User {
   preparedMoveOutInspections   MoveOutInspection[]               @relation("MoveOutInspectionPreparedBy")
   createdDepositDispositions   SecurityDepositDisposition[]      @relation("DepositDispositionCreatedBy")
   postedDepositLedgerEntries   SecurityDepositLedgerEntry[]      @relation("DepositLedgerPostedBy")
+  sentEmailLogs                EmailLog[]                        @relation("EmailLogSender")
+  createdEmailBatches          EmailBatch[]                      @relation("EmailBatchCreator")
 }
 
 model Agent {
@@ -504,6 +506,8 @@ model Property {
   eSignatureEnvelopes  ESignatureEnvelope[]
   rentalApplications   RentalApplication[]
   expenseLedgerEntries OwnerExpenseLedgerEntry[]
+  emailLogs           EmailLog[]
+  emailBatches        EmailBatch[]
 
   @@index([ownerId])
   @@index([agentId])
@@ -642,13 +646,14 @@ model Unit {
   property                   Property                     @relation(fields: [propertyId], references: [id])
   unitNumber                 String
   floor                      String?
-  bedrooms                   Int
-  bathrooms                  Float
-  squareFeet                 Int
-  rentAmount                 Float
-  depositAmount              Float
+  bedrooms                   Int?
+  bathrooms                  Float?
+  squareFeet                 Int?
+  rentAmount                 Float?
+  depositAmount              Float?
   status                     String                       @default("vacant") // vacant, occupied, under maintenance, off market
   availableDate              DateTime?
+  amenities                  String[]                     @default([])
   createdAt                  DateTime                     @default(now())
   updatedAt                  DateTime                     @updatedAt
   tenants                    Tenant[]
@@ -665,6 +670,7 @@ model Unit {
   MoveOutInspection          MoveOutInspection[]
   SecurityDepositDisposition SecurityDepositDisposition[]
   SecurityDepositLedgerEntry SecurityDepositLedgerEntry[]
+  emailLogs                  EmailLog[]
 
   @@unique([propertyId, unitNumber])
   @@index([propertyId, status])
@@ -818,6 +824,7 @@ model Tenant {
   moveOutInspections              MoveOutInspection[]
   depositDispositions             SecurityDepositDisposition[]
   depositLedgerEntries            SecurityDepositLedgerEntry[]
+  emailLogs                        EmailLog[]
 
   @@index([unitId, status])
   @@index([lastMessageAt(sort: Desc), id(sort: Desc)])
@@ -1743,6 +1750,16 @@ model AuditLog {
 model EmailLog {
   id                     String       @id @default(cuid())
   to                     String
+  tenantId               String?
+  tenant                 Tenant?      @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  propertyId             String?
+  property               Property?    @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  unitId                 String?
+  unit                   Unit?        @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  sentByUserId           String?
+  sentBy                 User?        @relation("EmailLogSender", fields: [sentByUserId], references: [id], onDelete: SetNull)
+  batchId                String?
+  batch                  EmailBatch?  @relation(fields: [batchId], references: [id], onDelete: SetNull)
   subject                String
   body                   String?
   templateKey            String
@@ -1771,6 +1788,28 @@ model EmailLog {
 
   @@index([status, nextRetryAt])
   @@index([createdAt(sort: Desc), id(sort: Desc)])
+  @@index([tenantId, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([batchId, createdAt(sort: Desc), id(sort: Desc)])
+}
+
+model EmailBatch {
+  id              String    @id @default(cuid())
+  createdByUserId String
+  createdBy       User      @relation("EmailBatchCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  templateKey     String
+  subject         String
+  audienceType    String
+  propertyId      String?
+  property        Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  recipientCount  Int
+  status          String    @default("CREATED")
+  idempotencyKey  String    @unique @db.Uuid
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  emailLogs       EmailLog[]
+
+  @@index([createdByUserId, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([propertyId, createdAt(sort: Desc), id(sort: Desc)])
 }
 
 model EmailEvent {

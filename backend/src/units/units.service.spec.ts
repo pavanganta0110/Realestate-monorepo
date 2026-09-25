@@ -63,11 +63,12 @@ describe('UnitsService', () => {
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
-  it('creates a normalized unit and exact audit record atomically', async () => {
+  it('records an occupied unit for a draft rental without starting a lease or publishing', async () => {
     const unit = {
       id: 'unit-1',
       propertyId: 'property-1',
       unitNumber: '1A',
+      status: 'occupied',
     };
     const tx = {
       unit: { create: jest.fn().mockResolvedValue(unit) },
@@ -75,7 +76,10 @@ describe('UnitsService', () => {
     };
     const prisma = {
       property: {
-        findFirst: jest.fn().mockResolvedValue({ id: 'property-1' }),
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'property-1',
+          publishStatus: 'DRAFT',
+        }),
       },
       $transaction: jest.fn(
         async (callback: (client: typeof tx) => Promise<unknown>) =>
@@ -87,14 +91,22 @@ describe('UnitsService', () => {
         propertyId: 'property-1',
         unitNumber: ' 1A ',
         floor: ' First ',
+        status: 'occupied',
         availableDate: '2026-09-01',
+        amenities: [' Washer ', 'Dryer', '', 'Washer'],
       }),
     ).resolves.toEqual(unit);
+    expect(prisma.property.findFirst).toHaveBeenCalledWith({
+      where: { id: 'property-1', listingType: ListingType.RENT },
+      select: { id: true },
+    });
     expect(firstArgument(tx.unit.create)).toMatchObject({
       data: {
         unitNumber: '1A',
         floor: 'First',
+        status: 'occupied',
         availableDate: new Date('2026-09-01'),
+        amenities: ['Washer', 'Dryer'],
       },
     });
     expect(tx.auditLog.create).toHaveBeenCalledWith({
@@ -106,6 +118,7 @@ describe('UnitsService', () => {
         newValue: JSON.stringify({
           propertyId: unit.propertyId,
           unitNumber: unit.unitNumber,
+          status: unit.status,
         }),
       },
     });
@@ -132,7 +145,11 @@ describe('UnitsService', () => {
 
   it('updates a unit and records its status transition atomically', async () => {
     const current = { id: 'unit-1', status: 'vacant' };
-    const updated = { ...current, status: 'maintenance', floor: 'Second' };
+    const updated = {
+      ...current,
+      status: 'under_maintenance',
+      floor: 'Second',
+    };
     const tx = {
       unit: { update: jest.fn().mockResolvedValue(updated) },
       auditLog: { create: jest.fn().mockResolvedValue({}) },
@@ -146,10 +163,14 @@ describe('UnitsService', () => {
     };
     await expect(
       serviceWith(prisma).update('admin-1', current.id, {
-        status: 'maintenance',
+        status: 'under_maintenance',
         floor: ' Second ',
+        amenities: [' Microwave ', 'Microwave', ''],
       }),
     ).resolves.toEqual(updated);
+    expect(firstArgument(tx.unit.update)).toMatchObject({
+      data: { floor: 'Second', amenities: ['Microwave'] },
+    });
     expect(tx.auditLog.create).toHaveBeenCalledWith({
       data: {
         userId: 'admin-1',
@@ -157,7 +178,7 @@ describe('UnitsService', () => {
         resource: 'unit',
         resourceId: current.id,
         oldValue: JSON.stringify({ status: 'vacant' }),
-        newValue: JSON.stringify({ status: 'maintenance' }),
+        newValue: JSON.stringify({ status: 'under_maintenance' }),
       },
     });
   });

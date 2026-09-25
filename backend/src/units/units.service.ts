@@ -18,6 +18,12 @@ const unitInclude = {
   },
 } satisfies Prisma.UnitInclude;
 
+function normalizeAmenities(amenities?: string[]) {
+  return [
+    ...new Set(amenities?.map((item) => item.trim()).filter(Boolean) ?? []),
+  ];
+}
+
 @Injectable()
 export class UnitsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -59,6 +65,7 @@ export class UnitsService {
         const unit = await tx.unit.create({
           data: {
             ...data,
+            amenities: normalizeAmenities(data.amenities),
             unitNumber: data.unitNumber.trim(),
             floor: data.floor?.trim(),
             availableDate: data.availableDate
@@ -76,6 +83,7 @@ export class UnitsService {
             newValue: JSON.stringify({
               propertyId: unit.propertyId,
               unitNumber: unit.unitNumber,
+              status: unit.status,
             }),
           },
         });
@@ -112,6 +120,9 @@ export class UnitsService {
           where: { id },
           data: {
             ...data,
+            ...(data.amenities !== undefined
+              ? { amenities: normalizeAmenities(data.amenities) }
+              : {}),
             unitNumber: data.unitNumber?.trim(),
             floor: data.floor?.trim(),
             availableDate: data.availableDate

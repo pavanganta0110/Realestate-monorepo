@@ -1,4 +1,8 @@
 .env
+.env.local
+.git
+.vercel
+node_modules
 coverage
 dev.db
 dist
