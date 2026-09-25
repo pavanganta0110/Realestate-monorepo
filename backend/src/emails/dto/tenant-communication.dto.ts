@@ -14,8 +14,17 @@ export class TenantCommunicationDto {
   audienceType: 'tenant' | 'selected' | 'property' | 'all_active';
 
   @IsOptional()
-  @IsIn(['tenant.custom_notice', 'rent.reminder', 'rent.late_notice'])
-  templateKey?: 'tenant.custom_notice' | 'rent.reminder' | 'rent.late_notice';
+  @IsIn([
+    'tenant.custom_notice',
+    'tenant.dashboard_sign_in',
+    'rent.reminder',
+    'rent.late_notice',
+  ])
+  templateKey?:
+    | 'tenant.custom_notice'
+    | 'tenant.dashboard_sign_in'
+    | 'rent.reminder'
+    | 'rent.late_notice';
 
   @IsUUID()
   requestId: string;

@@ -14,6 +14,7 @@ const tenantSelect = {
   lastName: true,
   email: true,
   status: true,
+  user: { select: { id: true } },
   unit: {
     select: {
       id: true,
@@ -75,6 +76,8 @@ export class TenantCommunicationsService {
       throw new BadRequestException(
         'Notice audience exceeds the 250-recipient safety limit',
       );
+    if (dto.templateKey === 'tenant.dashboard_sign_in')
+      return tenants.filter((tenant) => Boolean(tenant.user));
     if (dto.templateKey && dto.templateKey !== 'tenant.custom_notice')
       return tenants.filter((tenant) => tenant.payments.length > 0);
     return tenants;
@@ -158,19 +161,24 @@ export class TenantCommunicationsService {
               message,
               category: dto.category,
             }
-          : templateKey === 'rent.reminder'
+          : templateKey === 'tenant.dashboard_sign_in'
             ? {
                 name: `${tenant.firstName} ${tenant.lastName}`,
-                amount: tenant.payments[0]?.rentAmount,
-                dueDate:
-                  tenant.payments[0]?.dueDate.toLocaleDateString('en-US'),
+                url: this.emails.portal('/tenant/login', 'tenant'),
               }
-            : {
-                name: `${tenant.firstName} ${tenant.lastName}`,
-                amount: tenant.payments[0]?.rentAmount,
-                lateFee: tenant.payments[0]?.lateFee,
-                total: tenant.payments[0]?.totalAmount,
-              },
+            : templateKey === 'rent.reminder'
+              ? {
+                  name: `${tenant.firstName} ${tenant.lastName}`,
+                  amount: tenant.payments[0]?.rentAmount,
+                  dueDate:
+                    tenant.payments[0]?.dueDate.toLocaleDateString('en-US'),
+                }
+              : {
+                  name: `${tenant.firstName} ${tenant.lastName}`,
+                  amount: tenant.payments[0]?.rentAmount,
+                  lateFee: tenant.payments[0]?.lateFee,
+                  total: tenant.payments[0]?.totalAmount,
+                },
         `${batch.id}/${tenant.id}`,
         {
           tenantId: tenant.id,

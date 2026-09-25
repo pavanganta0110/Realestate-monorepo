@@ -28,7 +28,7 @@ export default function AdminEmailDeliveryPage() {
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [category, setCategory] = useState("General notice");
-  const [templateKey, setTemplateKey] = useState<"tenant.custom_notice" | "rent.reminder" | "rent.late_notice">("tenant.custom_notice");
+  const [templateKey, setTemplateKey] = useState<"tenant.custom_notice" | "tenant.dashboard_sign_in" | "rent.reminder" | "rent.late_notice">("tenant.custom_notice");
   const [audiencePreview, setAudiencePreview] = useState<{
     recipientCount: number;
     recipients: Array<{
@@ -122,7 +122,7 @@ export default function AdminEmailDeliveryPage() {
   async function sendNotice() {
     if (!audiencePreview || !requestId) return;
     const target = audience === "property" ? `${properties.find((p) => p.id === propertyId)?.name ?? "selected property"}` : audience === "all_active" ? "all active residents" : "the selected resident(s)";
-    const noticeTitle = templateKey === "rent.reminder" ? "Rent reminder" : templateKey === "rent.late_notice" ? "Late rent notice" : subject;
+    const noticeTitle = templateKey === "rent.reminder" ? "Rent reminder" : templateKey === "rent.late_notice" ? "Late rent notice" : templateKey === "tenant.dashboard_sign_in" ? "Dashboard sign-in" : subject;
     if (!window.confirm(`Send “${noticeTitle}” to ${audiencePreview.recipientCount} resident(s) (${target})? Each resident will receive an individual email.`)) return;
     setSendingBulk(true);
     try {
@@ -280,6 +280,7 @@ export default function AdminEmailDeliveryPage() {
                 }}
               >
                 <option value="tenant.custom_notice">Custom operational notice</option>
+                <option value="tenant.dashboard_sign_in">Dashboard sign-in (linked accounts only)</option>
                 <option value="rent.reminder">Rent reminder (server uses each resident’s current charge)</option>
                 <option value="rent.late_notice">Late rent notice (server uses each resident’s current balance)</option>
               </select>
@@ -328,7 +329,8 @@ export default function AdminEmailDeliveryPage() {
                 </div>
               </>
             ) : (
-              <p className="rounded-lg bg-secondary/40 p-3 text-sm text-muted-foreground">Only recipients with an unpaid rent charge will be included. Amounts and due dates are resolved separately for each recipient.</p>
+              <p className="rounded-lg bg-secondary/40 p-3 text-sm text-muted-foreground">
+                {templateKey === "tenant.dashboard_sign_in" ? "Only tenants with a linked portal account will be included. The email links to the tenant dashboard sign-in page." : "Only recipients with an unpaid rent charge will be included. Amounts and due dates are resolved separately for each recipient."}
             )}
             <div className="flex flex-wrap items-center gap-3">
               <Button
@@ -364,8 +366,8 @@ export default function AdminEmailDeliveryPage() {
             {audiencePreview ? (
               <div className="rounded-lg border border-border p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Email preview</p>
-                <h3 className="mt-2 font-semibold">{templateKey === "rent.reminder" ? "Rent reminder — Coach Johnson Realty" : templateKey === "rent.late_notice" ? "Important: late rent notice — Coach Johnson Realty" : subject}</h3>
-                <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{templateKey === "tenant.custom_notice" ? message : "Personalized rent information will be filled using each tenant’s current rent charge."}</p>
+                <h3 className="mt-2 font-semibold">{templateKey === "rent.reminder" ? "Rent reminder — Coach Johnson Realty" : templateKey === "rent.late_notice" ? "Important: late rent notice — Coach Johnson Realty" : templateKey === "tenant.dashboard_sign_in" ? "Sign in to your Coach Johnson Realty tenant dashboard" : subject}</h3>
+                <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{templateKey === "tenant.custom_notice" ? message : templateKey === "tenant.dashboard_sign_in" ? "A secure link to the tenant dashboard sign-in page will be included." : "Personalized rent information will be filled using each tenant’s current rent charge."}</p>
               </div>
             ) : null}
           </CardContent>

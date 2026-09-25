@@ -27,7 +27,7 @@ export default function TenantDetailPage() {
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [category, setCategory] = useState("General notice");
-  const [templateKey, setTemplateKey] = useState<"tenant.custom_notice" | "rent.reminder" | "rent.late_notice">("tenant.custom_notice");
+  const [templateKey, setTemplateKey] = useState<"tenant.custom_notice" | "tenant.dashboard_sign_in" | "rent.reminder" | "rent.late_notice">("tenant.custom_notice");
   const [sending, setSending] = useState(false);
   const [chatBody, setChatBody] = useState("");
   const [editOpen, setEditOpen] = useState(false);
@@ -388,6 +388,7 @@ export default function TenantDetailPage() {
               <Label htmlFor="email-template">Email type</Label>
               <select id="email-template" className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={templateKey} onChange={(e) => setTemplateKey(e.target.value as typeof templateKey)}>
                 <option value="tenant.custom_notice">Custom operational notice</option>
+                <option value="tenant.dashboard_sign_in">Dashboard sign-in</option>
                 <option value="rent.reminder">Rent reminder (server uses current charge)</option>
                 <option value="rent.late_notice">Late rent notice (server uses current balance)</option>
               </select>
@@ -409,7 +410,7 @@ export default function TenantDetailPage() {
               </>
             ) : (
               <p className="rounded-lg bg-secondary/50 p-3 text-sm text-muted-foreground">
-                Financial amounts and due dates are resolved from this tenant’s current rent charge on the server. Sending is unavailable if no unpaid rent charge exists.
+                {templateKey === "tenant.dashboard_sign_in" ? "This sends the tenant a link to the dashboard sign-in page. The tenant must already have a linked portal account." : "Financial amounts and due dates are resolved from this tenant’s current rent charge on the server. Sending is unavailable if no unpaid rent charge exists."}
               </p>
             )}
             <div className="flex justify-end gap-2">

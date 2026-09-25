@@ -39,6 +39,7 @@ export const EMAIL_TEMPLATE_KEYS = [
   'tenant_message.created',
   'tenant_message.admin_replied',
   'tenant.custom_notice',
+  'tenant.dashboard_sign_in',
   'rental_application.submitted',
   'rental_application.status_updated',
   'owner.stripe_onboarding_invited',
@@ -418,6 +419,13 @@ export function renderEmailTemplate(
         `${hello}${paragraphs}`,
       );
     }
+    case 'tenant.dashboard_sign_in':
+      return result(
+        key,
+        'Sign in to your Coach Johnson Realty tenant dashboard',
+        'Tenant dashboard sign-in',
+        `${hello}<p>Use the secure link below to sign in to your Coach Johnson Realty tenant dashboard and view your lease, payments, maintenance requests, and messages.</p>${button('Sign in to dashboard', values.url)}<p>If you forgot your password, choose the password reset option on the sign-in page.</p>`,
+      );
     case 'rental_application.submitted':
       return result(
         key,
