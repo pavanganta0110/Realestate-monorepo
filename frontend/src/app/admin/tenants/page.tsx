@@ -35,7 +35,6 @@ type TenantUnit = {
   id: string;
   unitNumber: string;
   status: string;
-  user?: { id: string; email: string; status: string } | null;
   tenants: Array<{ id: string }>;
   property: { name: string };
 };
@@ -45,6 +44,7 @@ type TenantRecord = {
   lastName: string;
   email: string;
   status: string;
+  user?: { id: string; email: string; status: string } | null;
   unit?: TenantUnit | null;
 };
 type InviteForm = {
