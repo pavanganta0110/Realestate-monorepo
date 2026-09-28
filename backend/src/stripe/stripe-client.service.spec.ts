@@ -50,7 +50,7 @@ describe('StripeClient webhook verification', () => {
         propertyName: 'Property',
         amountCents: 100,
         commissionCents: 10,
-        destinationAccountId: 'acct_123',
+        connectedAccountId: 'acct_123',
         successUrl: 'https://tenant.coachjohnsonrealty.com/tenant/pay-rent',
         cancelUrl: 'https://tenant.coachjohnsonrealty.com/tenant/pay-rent',
         idempotencyKey: 'key',
@@ -120,7 +120,7 @@ describe('StripeClient webhook verification', () => {
             if (key === 'STRIPE_SECRET_KEY') return 'sk_test_example';
             return undefined;
           }),
-        } as never).createRecipientAccount({
+        } as never).createMerchantAccount({
           ownerId: 'owner-123',
           email: 'owner@example.com',
           businessName: 'Zyene Holdings',
@@ -144,8 +144,8 @@ describe('StripeClient webhook verification', () => {
       expect(payload.defaults).toMatchObject({
         profile: { doing_business_as: 'Zyene Holdings' },
         responsibilities: {
-          fees_collector: 'application',
-          losses_collector: 'application',
+          fees_collector: 'stripe',
+          losses_collector: 'stripe',
         },
       });
       expect(payload.identity).toBeUndefined();
@@ -246,9 +246,9 @@ describe('StripeClient webhook verification', () => {
       expect(form.get('metadata[move_in_payment_id]')).toBe('payment-123');
       expect(form.get('line_items[0][price_data][unit_amount]')).toBe('180000');
       expect(form.get('line_items[1][price_data][unit_amount]')).toBe('120000');
-      expect(form.get('payment_intent_data[transfer_data][destination]')).toBe(
-        'acct_owner_123',
-      );
+      expect(
+        form.get('payment_intent_data[transfer_data][destination]'),
+      ).toBeNull();
       expect(form.get('payment_intent_data[application_fee_amount]')).toBe(
         '18000',
       );
@@ -258,7 +258,7 @@ describe('StripeClient webhook verification', () => {
     }
   });
 
-  it('reverses both the connected-account transfer and application fee on a rent refund', async () => {
+  it('creates a direct-charge refund on the connected owner account', async () => {
     let requestBody = '';
     const originalFetch = global.fetch;
     global.fetch = jest.fn(
@@ -286,14 +286,15 @@ describe('StripeClient webhook verification', () => {
       } as never).createDestinationChargeRefund({
         paymentIntentId: 'pi_rent_123',
         amountCents: 120000,
+        connectedAccountId: 'acct_owner_123',
         idempotencyKey: 'rent-refund-payment-123-request-123',
       });
 
       const form = new URLSearchParams(requestBody);
       expect(form.get('payment_intent')).toBe('pi_rent_123');
       expect(form.get('amount')).toBe('120000');
-      expect(form.get('reverse_transfer')).toBe('true');
-      expect(form.get('refund_application_fee')).toBe('true');
+      expect(form.get('reverse_transfer')).toBeNull();
+      expect(form.get('refund_application_fee')).toBeNull();
     } finally {
       global.fetch = originalFetch;
     }

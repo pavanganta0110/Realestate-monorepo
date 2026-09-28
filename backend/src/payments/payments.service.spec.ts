@@ -256,6 +256,7 @@ describe('PaymentsService owner attribution', () => {
         },
       }),
       recipientTransferStatus: jest.fn().mockReturnValue('active'),
+      ownerPaymentsStatus: jest.fn().mockReturnValue('active'),
       createCheckoutSession: jest.fn().mockResolvedValue(checkout),
     };
     const emails = { sendPaymentRecorded: jest.fn().mockResolvedValue({}) };
@@ -271,7 +272,7 @@ describe('PaymentsService owner attribution', () => {
         paymentId: 'payment-1',
         amountCents: 120000,
         commissionCents: 15000,
-        destinationAccountId: 'acct_owner_1',
+        connectedAccountId: 'acct_owner_1',
       }),
     );
     expect(result).toEqual(

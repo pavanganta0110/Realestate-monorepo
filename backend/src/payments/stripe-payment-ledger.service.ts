@@ -199,9 +199,23 @@ export class StripePaymentLedgerService {
               : undefined;
       }
       if (!destinationTransferId) {
-        throw new BadRequestException(
-          'Stripe dispute owner transfer could not be reconciled',
-        );
+        // Direct charges are created on the owner account, so there is no
+        // platform transfer to reverse when Stripe manages the dispute loss.
+        await this.prisma.$transaction(async (tx) => {
+          await tx.payment.update({
+            where: { id: paymentId },
+            data: { stripeLastEventAt: new Date() },
+          });
+          await tx.auditLog.create({
+            data: {
+              action: 'STRIPE_RENT_PAYMENT_DIRECT_CHARGE_DISPUTE_RECORDED',
+              resource: 'payment',
+              resourceId: paymentId,
+              newValue: JSON.stringify({ chargeId, disputeId }),
+            },
+          });
+        });
+        return { paymentId, action: 'direct_charge_dispute_recorded' };
       }
       const dispute = await this.stripe.retrieveDispute(disputeId);
       if (!Number.isFinite(dispute.amount) || dispute.amount <= 0) {
@@ -280,6 +294,7 @@ export class StripePaymentLedgerService {
         refundedAmount: true,
         stripeCheckoutStatus: true,
         stripePaymentIntentId: true,
+        propertyOwner: { select: { stripeConnectedAccountId: true } },
       },
     });
     if (
@@ -304,6 +319,8 @@ export class StripePaymentLedgerService {
     const refund = await this.stripe.createDestinationChargeRefund({
       paymentIntentId: payment.stripePaymentIntentId,
       amountCents,
+      connectedAccountId:
+        payment.propertyOwner?.stripeConnectedAccountId ?? undefined,
       idempotencyKey: `rent-refund-${payment.id}-${data.clientRequestId}`,
     });
     await this.prisma.auditLog.create({
@@ -331,7 +348,7 @@ export class StripePaymentLedgerService {
   async processOwnerAccount(record: Record<string, unknown>) {
     const accountId = this.value(record, 'id');
     if (!accountId) return undefined;
-    const capabilityStatus = this.stripe.recipientTransferStatus(record);
+    const capabilityStatus = this.stripe.ownerPaymentsStatus(record);
     const payoutStatus =
       capabilityStatus === 'active'
         ? PropertyOwnerPayoutStatus.ACTIVE

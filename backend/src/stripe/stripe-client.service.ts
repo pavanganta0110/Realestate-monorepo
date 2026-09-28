@@ -142,12 +142,16 @@ export class StripeClient {
     form: URLSearchParams,
     idempotencyKey?: string,
     feature: 'rent' | 'application' = 'rent',
+    extraHeaders: Record<string, string> = {},
   ) {
     return this.request<T>(
       path,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          ...extraHeaders,
+        },
         body: form.toString(),
       },
       idempotencyKey,
@@ -161,7 +165,7 @@ export class StripeClient {
     propertyName: string;
     amountCents: number;
     commissionCents: number;
-    destinationAccountId: string;
+    connectedAccountId: string;
     successUrl: string;
     cancelUrl: string;
     idempotencyKey: string;
@@ -182,11 +186,6 @@ export class StripeClient {
       form,
       'payment_intent_data[metadata][payment_id]',
       input.paymentId,
-    );
-    appendFormValue(
-      form,
-      'payment_intent_data[transfer_data][destination]',
-      input.destinationAccountId,
     );
     appendFormValue(
       form,
@@ -211,6 +210,8 @@ export class StripeClient {
       '/v1/checkout/sessions',
       form,
       input.idempotencyKey,
+      'rent',
+      { 'Stripe-Account': input.connectedAccountId },
     );
   }
 
@@ -244,11 +245,6 @@ export class StripeClient {
     if (input.destinationAccountId) {
       appendFormValue(
         form,
-        'payment_intent_data[transfer_data][destination]',
-        input.destinationAccountId,
-      );
-      appendFormValue(
-        form,
         'payment_intent_data[application_fee_amount]',
         input.managementAmountCents,
       );
@@ -277,6 +273,10 @@ export class StripeClient {
       '/v1/checkout/sessions',
       form,
       input.idempotencyKey,
+      'rent',
+      input.destinationAccountId
+        ? { 'Stripe-Account': input.destinationAccountId }
+        : {},
     );
   }
 
@@ -330,7 +330,7 @@ export class StripeClient {
     );
   }
 
-  async createRecipientAccount(input: {
+  async createMerchantAccount(input: {
     ownerId: string;
     email: string;
     businessName?: string | null;
@@ -343,22 +343,20 @@ export class StripeClient {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contact_email: input.email,
-          dashboard: 'express',
+          dashboard: 'full',
           defaults: {
             profile: input.businessName
               ? { doing_business_as: input.businessName }
               : undefined,
             responsibilities: {
-              fees_collector: 'application',
-              // Owner payouts use destination charges through a recipient
-              // configuration, so the platform must retain loss liability.
-              losses_collector: 'application',
+              fees_collector: 'stripe',
+              losses_collector: 'stripe',
             },
           },
           configuration: {
-            recipient: {
+            merchant: {
               capabilities: {
-                stripe_balance: { stripe_transfers: { requested: true } },
+                card_payments: { requested: true },
               },
             },
           },
@@ -417,8 +415,34 @@ export class StripeClient {
 
   async retrieveConnectedAccount(accountId: string) {
     return this.request<Record<string, unknown>>(
-      `/v2/core/accounts/${encodeURIComponent(accountId)}`,
+      `/v2/core/accounts/${encodeURIComponent(accountId)}?include[]=configuration.merchant&include[]=configuration.recipient`,
       { method: 'GET' },
+    );
+  }
+
+  merchantPaymentsStatus(account: Record<string, unknown>) {
+    const configuration = account.configuration;
+    const merchant =
+      configuration && typeof configuration === 'object'
+        ? (configuration as Record<string, unknown>).merchant
+        : undefined;
+    const capabilities =
+      merchant && typeof merchant === 'object'
+        ? (merchant as Record<string, unknown>).capabilities
+        : undefined;
+    const cardPayments =
+      capabilities && typeof capabilities === 'object'
+        ? (capabilities as Record<string, unknown>).card_payments
+        : undefined;
+    if (!cardPayments || typeof cardPayments !== 'object') return undefined;
+    const status = (cardPayments as Record<string, unknown>).status;
+    return typeof status === 'string' ? status : undefined;
+  }
+
+  ownerPaymentsStatus(account: Record<string, unknown>) {
+    return (
+      this.merchantPaymentsStatus(account) ??
+      this.recipientTransferStatus(account)
     );
   }
 
@@ -460,16 +484,23 @@ export class StripeClient {
     paymentIntentId: string;
     amountCents: number;
     idempotencyKey: string;
+    connectedAccountId?: string;
   }) {
     const form = new URLSearchParams();
     appendFormValue(form, 'payment_intent', input.paymentIntentId);
     appendFormValue(form, 'amount', input.amountCents);
-    appendFormValue(form, 'reverse_transfer', true);
-    appendFormValue(form, 'refund_application_fee', true);
+    if (!input.connectedAccountId) {
+      appendFormValue(form, 'reverse_transfer', true);
+      appendFormValue(form, 'refund_application_fee', true);
+    }
     return this.postForm<{ id: string; status: string }>(
       '/v1/refunds',
       form,
       input.idempotencyKey,
+      'rent',
+      input.connectedAccountId
+        ? { 'Stripe-Account': input.connectedAccountId }
+        : {},
     );
   }
 

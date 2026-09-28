@@ -41,6 +41,7 @@ describe('StripePaymentLedgerService', () => {
     expect(stripe.createDestinationChargeRefund).toHaveBeenCalledWith({
       paymentIntentId: 'pi_rent_1',
       amountCents: 30000,
+      connectedAccountId: undefined,
       idempotencyKey:
         'rent-refund-payment-1-32345678-1234-4234-8234-123456789012',
     });

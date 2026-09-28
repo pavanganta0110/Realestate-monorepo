@@ -651,7 +651,7 @@ export class PaymentsService {
     const account = await this.stripe.retrieveConnectedAccount(
       owner.stripeConnectedAccountId,
     );
-    const capabilityStatus = this.stripe.recipientTransferStatus(account);
+    const capabilityStatus = this.stripe.ownerPaymentsStatus(account);
     const payoutReady = capabilityStatus === 'active';
     await this.syncOwnerPayoutReadiness(owner, capabilityStatus);
     if (!payoutReady) {
@@ -676,7 +676,7 @@ export class PaymentsService {
       propertyName: payment.unit.property.name,
       amountCents,
       commissionCents,
-      destinationAccountId: owner.stripeConnectedAccountId,
+      connectedAccountId: owner.stripeConnectedAccountId,
       successUrl: successUrl.toString(),
       cancelUrl: cancelUrl.toString(),
       idempotencyKey: `rent-checkout-${payment.id}-${payment.updatedAt.getTime()}`,
@@ -1043,7 +1043,9 @@ export class PaymentsService {
       let result: { ownerId?: string } | undefined;
       if (
         event.type ===
-        'v2.core.account[configuration.recipient].capability_status_updated'
+          'v2.core.account[configuration.recipient].capability_status_updated' ||
+        event.type ===
+          'v2.core.account[configuration.merchant].capability_status_updated'
       ) {
         if (!this.stripe) {
           throw new BadRequestException('Stripe Connect is not configured yet');

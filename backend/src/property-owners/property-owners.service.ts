@@ -135,7 +135,7 @@ export class PropertyOwnersService {
     const owner = await this.findOne(id);
     let accountId = owner.stripeConnectedAccountId;
     if (!accountId) {
-      const account = await this.stripe.createRecipientAccount({
+      const account = await this.stripe.createMerchantAccount({
         ownerId: owner.id,
         email: owner.contactEmail,
         businessName: owner.companyName ?? owner.ownerName,
