@@ -148,7 +148,7 @@ describe('StripeClient webhook verification', () => {
           losses_collector: 'stripe',
         },
       });
-      expect(payload.identity).toBeUndefined();
+      expect(payload.identity).toEqual({ country: 'US' });
     } finally {
       global.fetch = originalFetch;
     }

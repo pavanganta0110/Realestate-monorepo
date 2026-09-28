@@ -343,6 +343,7 @@ export class StripeClient {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contact_email: input.email,
+          identity: { country: 'US' },
           dashboard: 'full',
           defaults: {
             profile: input.businessName
