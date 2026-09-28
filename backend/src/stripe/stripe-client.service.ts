@@ -350,7 +350,7 @@ export class StripeClient {
               : undefined,
             responsibilities: {
               fees_collector: 'application',
-              losses_collector: 'application',
+              losses_collector: 'stripe',
             },
           },
           configuration: {

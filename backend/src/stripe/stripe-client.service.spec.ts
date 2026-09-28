@@ -145,7 +145,7 @@ describe('StripeClient webhook verification', () => {
         profile: { doing_business_as: 'Zyene Holdings' },
         responsibilities: {
           fees_collector: 'application',
-          losses_collector: 'application',
+          losses_collector: 'stripe',
         },
       });
       expect(payload.identity).toBeUndefined();
