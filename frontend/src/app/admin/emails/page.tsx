@@ -331,6 +331,7 @@ export default function AdminEmailDeliveryPage() {
             ) : (
               <p className="rounded-lg bg-secondary/40 p-3 text-sm text-muted-foreground">
                 {templateKey === "tenant.dashboard_sign_in" ? "Only tenants with a linked portal account will be included. The email links to the tenant dashboard sign-in page." : "Only recipients with an unpaid rent charge will be included. Amounts and due dates are resolved separately for each recipient."}
+              </p>
             )}
             <div className="flex flex-wrap items-center gap-3">
               <Button
