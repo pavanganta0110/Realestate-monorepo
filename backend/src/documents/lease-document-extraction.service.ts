@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { createCanvas } from '@napi-rs/canvas';
 import { Prisma } from '@prisma/client';
 import { createClient } from '@supabase/supabase-js';
 import { CHATBOT_MODEL } from '../chatbot/chatbot.constants';
@@ -14,6 +15,9 @@ import { ApplyLeaseTermsDto } from './dto/tenant-document.dto';
 const DOCUMENT_BUCKET = 'tenant-documents';
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const PDF_TEXT_LIMIT = 60_000;
+const PDF_VISION_PAGE_LIMIT = 9;
+const PDF_VISION_BATCH_SIZE = 3;
+const LEASE_VISION_MODEL = 'qwen/qwen3.8-27b';
 const ACTIVE_LEASE_STATUSES = ['active', 'expiring', 'renewed'];
 
 export type ExtractedLeaseTerms = {
@@ -251,9 +255,7 @@ export class LeaseDocumentExtractionService {
       const bytes = new Uint8Array(await response.arrayBuffer());
       const text = await this.pdfText(bytes);
       if (!text.trim()) {
-        throw new Error(
-          'No selectable text was found in this PDF. Upload a clear lease image or enter the lease terms manually.',
-        );
+        return this.extractScannedPdfTerms(bytes, apiKey);
       }
       content = [{ type: 'text', text: this.prompt(text) }];
     } else if (contentType.startsWith('image/')) {
@@ -261,12 +263,64 @@ export class LeaseDocumentExtractionService {
         { type: 'text', text: this.prompt('Read the attached lease image.') },
         { type: 'image_url', image_url: { url: signedUrl } },
       ];
+      return this.requestTerms(content, apiKey, LEASE_VISION_MODEL);
     } else {
       throw new Error(
         'Lease extraction supports PDF, JPEG, PNG, and WebP files.',
       );
     }
 
+    return this.requestTerms(content, apiKey, CHATBOT_MODEL);
+  }
+
+  private async extractScannedPdfTerms(
+    bytes: Uint8Array,
+    apiKey: string,
+  ): Promise<ExtractedLeaseTerms> {
+    const images = await this.pdfImages(bytes);
+    if (!images.length) {
+      throw new Error('No readable pages were found in this PDF.');
+    }
+
+    let merged = this.normalizeTerms({});
+    for (let index = 0; index < images.length; index += PDF_VISION_BATCH_SIZE) {
+      const pageImages = images.slice(index, index + PDF_VISION_BATCH_SIZE);
+      const content = [
+        {
+          type: 'text',
+          text: this.prompt(
+            `Read these scanned lease pages (pages ${index + 1}-${index + pageImages.length}) and extract only facts explicitly written in them.`,
+          ),
+        },
+        ...pageImages.map((url) => ({
+          type: 'image_url',
+          image_url: { url },
+        })),
+      ];
+      merged = this.mergeTerms(
+        merged,
+        await this.requestTerms(content, apiKey, LEASE_VISION_MODEL),
+      );
+    }
+
+    if (
+      !merged.startDate &&
+      !merged.endDate &&
+      merged.monthlyRent == null &&
+      merged.securityDeposit == null
+    ) {
+      throw new Error(
+        'No readable lease terms were found in this scanned PDF. Upload clearer page images or enter the lease terms manually.',
+      );
+    }
+    return merged;
+  }
+
+  private async requestTerms(
+    content: unknown,
+    apiKey: string,
+    model: string,
+  ): Promise<ExtractedLeaseTerms> {
     const response = await fetch(GROQ_URL, {
       method: 'POST',
       headers: {
@@ -274,7 +328,7 @@ export class LeaseDocumentExtractionService {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: CHATBOT_MODEL,
+        model,
         messages: [{ role: 'user', content }],
         temperature: 0,
         max_completion_tokens: 1400,
@@ -301,6 +355,41 @@ export class LeaseDocumentExtractionService {
       throw new Error('The lease reader returned invalid terms');
     }
     return this.normalizeTerms(parsed);
+  }
+
+  private mergeTerms(
+    current: ExtractedLeaseTerms,
+    next: ExtractedLeaseTerms,
+  ): ExtractedLeaseTerms {
+    const unique = (items: string[]) => [...new Set(items)].slice(0, 20);
+    const startDate = current.startDate ?? next.startDate;
+    const endDate = current.endDate ?? next.endDate;
+    return {
+      startDate,
+      endDate,
+      leaseTermMonths:
+        startDate && endDate
+          ? this.monthsBetween(
+              new Date(`${startDate}T00:00:00Z`),
+              new Date(`${endDate}T00:00:00Z`),
+            )
+          : (current.leaseTermMonths ?? next.leaseTermMonths),
+      monthlyRent: current.monthlyRent ?? next.monthlyRent,
+      securityDeposit: current.securityDeposit ?? next.securityDeposit,
+      rentDueDay: current.rentDueDay ?? next.rentDueDay,
+      gracePeriodDays: current.gracePeriodDays ?? next.gracePeriodDays,
+      lateFeeAmount: current.lateFeeAmount ?? next.lateFeeAmount,
+      recurringCharges: unique([
+        ...current.recurringCharges,
+        ...next.recurringCharges,
+      ]),
+      oneTimeFees: unique([...current.oneTimeFees, ...next.oneTimeFees]),
+      utilitiesResponsibility:
+        current.utilitiesResponsibility ?? next.utilitiesResponsibility,
+      renewalTerms: current.renewalTerms ?? next.renewalTerms,
+      notes: unique([...current.notes, ...next.notes]),
+      confidence: current.confidence ?? next.confidence,
+    };
   }
 
   private prompt(text: string) {
@@ -390,15 +479,7 @@ export class LeaseDocumentExtractionService {
   }
 
   private async pdfText(bytes: Uint8Array) {
-    // Keep the ESM-only PDF reader as a literal dynamic import so the Vercel
-    // bundler includes it without rewriting it to CommonJS require().
-    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
-    // PDF.js runs in fake-worker mode on Node. Providing its worker module
-    // directly avoids a second runtime import that Vercel cannot trace.
-    // @ts-expect-error pdfjs-dist does not publish declarations for this worker entry.
-    const pdfjsWorker = await import('pdfjs-dist/legacy/build/pdf.worker.mjs');
-    (globalThis as typeof globalThis & { pdfjsWorker?: unknown }).pdfjsWorker =
-      pdfjsWorker;
+    const pdfjs = await this.pdfEngine();
     const pdf = await pdfjs.getDocument({ data: bytes }).promise;
     const pages: string[] = [];
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
@@ -409,6 +490,44 @@ export class LeaseDocumentExtractionService {
       );
     }
     return pages.join('\n');
+  }
+
+  private async pdfImages(bytes: Uint8Array) {
+    const pdfjs = await this.pdfEngine();
+    const pdf = await pdfjs.getDocument({ data: bytes }).promise;
+    const images: string[] = [];
+    const pageCount = Math.min(pdf.numPages, PDF_VISION_PAGE_LIMIT);
+    for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
+      const page = await pdf.getPage(pageNumber);
+      const viewport = page.getViewport({ scale: 1.5 });
+      const canvas = createCanvas(
+        Math.ceil(viewport.width),
+        Math.ceil(viewport.height),
+      );
+      await page.render({
+        canvasContext: canvas.getContext(
+          '2d',
+        ) as unknown as CanvasRenderingContext2D,
+        viewport,
+      }).promise;
+      images.push(
+        `data:image/jpeg;base64,${canvas
+          .toBuffer('image/jpeg', 82)
+          .toString('base64')}`,
+      );
+    }
+    return images;
+  }
+
+  private async pdfEngine() {
+    // Keep both ESM entries as literal dynamic imports so Vercel bundles them
+    // without rewriting the PDF.js worker to CommonJS require().
+    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    // @ts-expect-error pdfjs-dist does not publish declarations for this worker entry.
+    const pdfjsWorker = await import('pdfjs-dist/legacy/build/pdf.worker.mjs');
+    (globalThis as typeof globalThis & { pdfjsWorker?: unknown }).pdfjsWorker =
+      pdfjsWorker;
+    return pdfjs;
   }
 
   private contentType(name: string) {

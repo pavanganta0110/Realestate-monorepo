@@ -44,6 +44,7 @@
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/throttler": "^6.5.0",
+    "@napi-rs/canvas": "0.1.100",
     "@prisma/client": "^6.2.1",
     "@supabase/supabase-js": "2.112.3",
     "@verdocs/js-sdk": "6.10.6",
