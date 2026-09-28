@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
+import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { createClient } from '@supabase/supabase-js';
 import { CHATBOT_MODEL } from '../chatbot/chatbot.constants';
 import { PrismaService } from '../prisma/prisma.service';
@@ -390,24 +391,6 @@ export class LeaseDocumentExtractionService {
   }
 
   private async pdfText(bytes: Uint8Array) {
-    // Keep the PDF engine out of the main server bundle until a PDF is actually
-    // analyzed. The package is ESM-only and its declarations are very large.
-    const pdfjsModule = 'pdfjs-dist/legacy/build/pdf.mjs';
-    const loadPdfJs = new Function('specifier', 'return import(specifier)') as (
-      specifier: string,
-    ) => Promise<{
-      getDocument: (input: { data: Uint8Array }) => {
-        promise: Promise<{
-          numPages: number;
-          getPage: (page: number) => Promise<{
-            getTextContent: () => Promise<{
-              items: Array<{ str?: string }>;
-            }>;
-          }>;
-        }>;
-      };
-    }>;
-    const pdfjs = await loadPdfJs(pdfjsModule);
     const pdf = await pdfjs.getDocument({ data: bytes }).promise;
     const pages: string[] = [];
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
