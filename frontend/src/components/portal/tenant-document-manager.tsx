@@ -136,6 +136,23 @@ export function TenantDocumentManager({
     void Promise.resolve().then(load);
   }, [load]);
 
+  const loadLeaseReview = async (documentId: string) => {
+    setWorkingId(documentId);
+    try {
+      const result = (await api.post(
+        `${basePath}/${documentId}/lease-extract`,
+        {},
+      )) as { documentId: string; terms: LeaseTerms };
+      setLeaseReview({
+        documentId: result.documentId,
+        terms: result.terms,
+      });
+      setLeaseValues(formValuesForTerms(result.terms));
+    } finally {
+      setWorkingId(null);
+    }
+  };
+
   const upload = async (file?: File) => {
     if (!file) return;
     if (!ACCEPTED_TYPES.split(",").includes(file.type)) {
@@ -167,15 +184,7 @@ export function TenantDocumentManager({
       })) as { id: string };
       if (isAdmin && type === "LEASE") {
         try {
-          const result = (await api.post(
-            `${basePath}/${attached.id}/lease-extract`,
-            {},
-          )) as { documentId: string; terms: LeaseTerms };
-          setLeaseReview({
-            documentId: result.documentId,
-            terms: result.terms,
-          });
-          setLeaseValues(formValuesForTerms(result.terms));
+          await loadLeaseReview(attached.id);
         } catch (error: unknown) {
           toast.error(
             getErrorMessage(
@@ -323,20 +332,25 @@ export function TenantDocumentManager({
                 <div className="flex shrink-0 gap-2">
                   {isAdmin &&
                   document.type === "LEASE" &&
-                  document.extractionStatus === "ready" &&
-                  document.extractedTerms ? (
+                  document.extractionStatus !== "applied" ? (
                     <Button
                       type="button"
                       size="sm"
                       variant="outline"
-                      onClick={() => {
-                        const terms = document.extractedTerms;
-                        if (!terms) return;
-                        setLeaseReview({ documentId: document.id, terms });
-                        setLeaseValues(formValuesForTerms(terms));
-                      }}
+                      disabled={workingId === document.id}
+                      onClick={() =>
+                        void loadLeaseReview(document.id).catch(
+                          (error: unknown) =>
+                            toast.error(
+                              getErrorMessage(error, "Unable to analyze lease"),
+                            ),
+                        )
+                      }
                     >
-                      Review terms
+                      {document.extractionStatus === "ready" &&
+                      document.extractedTerms
+                        ? "Review terms"
+                        : "Analyze lease"}
                     </Button>
                   ) : null}
                   <Button
