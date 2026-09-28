@@ -7,6 +7,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { createClient } from '@supabase/supabase-js';
+import { CHATBOT_MODEL } from '../chatbot/chatbot.constants';
 import { PrismaService } from '../prisma/prisma.service';
 import { ApplyLeaseTermsDto } from './dto/tenant-document.dto';
 
@@ -273,9 +274,7 @@ export class LeaseDocumentExtractionService {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: contentType.startsWith('image/')
-          ? 'qwen/qwen3.8-27b'
-          : 'openai/gpt-oss-20b',
+        model: CHATBOT_MODEL,
         messages: [{ role: 'user', content }],
         temperature: 0,
         max_completion_tokens: 1400,
