@@ -14,10 +14,12 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import {
+  ApplyLeaseTermsDto,
   AttachTenantDocumentDto,
   CreateTenantDocumentUploadDto,
 } from './dto/tenant-document.dto';
 import { DocumentsService } from './documents.service';
+import { LeaseDocumentExtractionService } from './lease-document-extraction.service';
 
 @Controller('tenant/portal/documents')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -76,7 +78,10 @@ export class TenantDocumentsController {
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN)
 export class AdminTenantDocumentsController {
-  constructor(private readonly documents: DocumentsService) {}
+  constructor(
+    private readonly documents: DocumentsService,
+    private readonly leaseExtraction: LeaseDocumentExtractionService,
+  ) {}
 
   @Get(':tenantId/documents')
   list(@Param('tenantId') tenantId: string) {
@@ -107,6 +112,21 @@ export class AdminTenantDocumentsController {
       tenantId,
       body,
     );
+  }
+
+  @Post(':tenantId/documents/:id/lease-extract')
+  extractLease(@Param('tenantId') tenantId: string, @Param('id') id: string) {
+    return this.leaseExtraction.extract(tenantId, id);
+  }
+
+  @Post(':tenantId/documents/:id/lease-terms')
+  applyLeaseTerms(
+    @Request() request: RequiredAuthenticatedRequest,
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Body() body: ApplyLeaseTermsDto,
+  ) {
+    return this.leaseExtraction.apply(request.user.sub, tenantId, id, body);
   }
 
   @Get(':tenantId/documents/:id/download-url')

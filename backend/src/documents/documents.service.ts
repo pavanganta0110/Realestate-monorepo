@@ -185,6 +185,7 @@ export class DocumentsService {
           tenantId,
           name: this.safeName(data.fileName),
           type: data.type,
+          contentType: data.contentType,
           storagePath: data.path,
           uploadedByUserId: actor.id,
         },
@@ -333,6 +334,8 @@ const documentListSelect = {
   id: true,
   name: true,
   type: true,
+  extractionStatus: true,
+  extractedTerms: true,
   createdAt: true,
   uploadedBy: { select: { email: true } },
 } as const;

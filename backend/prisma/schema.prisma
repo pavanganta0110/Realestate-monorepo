@@ -1559,6 +1559,10 @@ model Document {
   name             String
   storagePath      String   @map("url")
   type             String // Lease, ID, Income, Notice, etc.
+  contentType      String?
+  extractionStatus String?
+  extractedTerms   Json?
+  extractedAt      DateTime?
   uploadedByUserId String?
   uploadedBy       User?    @relation("TenantDocumentUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: SetNull)
   createdAt        DateTime @default(now())

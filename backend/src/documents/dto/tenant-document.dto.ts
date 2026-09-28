@@ -1,5 +1,16 @@
-import { Transform } from 'class-transformer';
-import { IsIn, IsString, Length, MaxLength } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import {
+  IsDateString,
+  IsIn,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Length,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { trimText } from '../../auth/dto/auth-input.transforms';
 
 export const TENANT_DOCUMENT_TYPES = [
@@ -43,4 +54,28 @@ export class AttachTenantDocumentDto extends CreateTenantDocumentUploadDto {
   @IsString()
   @MaxLength(500)
   path!: string;
+}
+
+export class ApplyLeaseTermsDto {
+  @IsOptional() @IsDateString() startDate?: string;
+  @IsOptional() @IsDateString() endDate?: string;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(0) monthlyRent?: number;
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  securityDeposit?: number;
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(28)
+  rentDueDay?: number;
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(30)
+  gracePeriodDays?: number;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(0) lateFeeAmount?: number;
 }

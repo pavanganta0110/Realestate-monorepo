@@ -22,8 +22,42 @@ type TenantDocument = {
   id: string;
   name: string;
   type: string;
+  extractionStatus?: string | null;
+  extractedTerms?: LeaseTerms | null;
   createdAt: string;
   uploadedBy: { email: string } | null;
+};
+
+type LeaseTerms = {
+  startDate: string | null;
+  endDate: string | null;
+  leaseTermMonths: number | null;
+  monthlyRent: number | null;
+  securityDeposit: number | null;
+  rentDueDay: number | null;
+  gracePeriodDays: number | null;
+  lateFeeAmount: number | null;
+  recurringCharges: string[];
+  oneTimeFees: string[];
+  utilitiesResponsibility: string | null;
+  renewalTerms: string | null;
+  notes: string[];
+  confidence: number | null;
+};
+
+type LeaseReview = {
+  documentId: string;
+  terms: LeaseTerms;
+};
+
+type LeaseFormValues = {
+  startDate: string;
+  endDate: string;
+  monthlyRent: string;
+  securityDeposit: string;
+  rentDueDay: string;
+  gracePeriodDays: string;
+  lateFeeAmount: string;
 };
 
 const ADMIN_TYPES = [
@@ -50,6 +84,18 @@ function isSafeDownloadUrl(value: unknown): value is string {
   return typeof value === "string" && value.startsWith("https://");
 }
 
+function formValuesForTerms(terms: LeaseTerms): LeaseFormValues {
+  return {
+    startDate: terms.startDate ?? "",
+    endDate: terms.endDate ?? "",
+    monthlyRent: terms.monthlyRent?.toString() ?? "",
+    securityDeposit: terms.securityDeposit?.toString() ?? "",
+    rentDueDay: terms.rentDueDay?.toString() ?? "",
+    gracePeriodDays: terms.gracePeriodDays?.toString() ?? "",
+    lateFeeAmount: terms.lateFeeAmount?.toString() ?? "",
+  };
+}
+
 export function TenantDocumentManager({
   tenantId,
   tenantName,
@@ -66,6 +112,9 @@ export function TenantDocumentManager({
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [workingId, setWorkingId] = useState<string | null>(null);
+  const [leaseReview, setLeaseReview] = useState<LeaseReview | null>(null);
+  const [leaseValues, setLeaseValues] = useState<LeaseFormValues | null>(null);
+  const [applyingLease, setApplyingLease] = useState(false);
   const [type, setType] = useState<(typeof ADMIN_TYPES)[number][0]>(
     supportedTypes[0][0],
   );
@@ -110,12 +159,32 @@ export function TenantDocumentManager({
           contentType: file.type,
         });
       if (error) throw error;
-      await api.post(basePath, {
+      const attached = (await api.post(basePath, {
         path: signed.path,
         fileName: file.name,
         type,
         contentType: file.type,
-      });
+      })) as { id: string };
+      if (isAdmin && type === "LEASE") {
+        try {
+          const result = (await api.post(
+            `${basePath}/${attached.id}/lease-extract`,
+            {},
+          )) as { documentId: string; terms: LeaseTerms };
+          setLeaseReview({
+            documentId: result.documentId,
+            terms: result.terms,
+          });
+          setLeaseValues(formValuesForTerms(result.terms));
+        } catch (error: unknown) {
+          toast.error(
+            getErrorMessage(
+              error,
+              "Lease uploaded, but its terms could not be read. You can enter them manually in the lease record.",
+            ),
+          );
+        }
+      }
       toast.success("Document uploaded securely");
       if (fileInput.current) fileInput.current.value = "";
       await load();
@@ -243,10 +312,33 @@ export function TenantDocumentManager({
                       {isAdmin && document.uploadedBy?.email
                         ? ` by ${document.uploadedBy.email}`
                         : ""}
+                      {document.extractionStatus === "applied"
+                        ? " · Lease terms saved"
+                        : document.extractionStatus === "ready"
+                          ? " · Lease terms ready for review"
+                          : ""}
                     </p>
                   </div>
                 </div>
                 <div className="flex shrink-0 gap-2">
+                  {isAdmin &&
+                  document.type === "LEASE" &&
+                  document.extractionStatus === "ready" &&
+                  document.extractedTerms ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        const terms = document.extractedTerms;
+                        if (!terms) return;
+                        setLeaseReview({ documentId: document.id, terms });
+                        setLeaseValues(formValuesForTerms(terms));
+                      }}
+                    >
+                      Review terms
+                    </Button>
+                  ) : null}
                   <Button
                     type="button"
                     size="sm"
@@ -271,6 +363,159 @@ export function TenantDocumentManager({
           ))}
         </div>
       )}
+
+      <Dialog
+        open={Boolean(leaseReview)}
+        onOpenChange={(open) => {
+          if (!open && !applyingLease) {
+            setLeaseReview(null);
+            setLeaseValues(null);
+          }
+        }}
+      >
+        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Review extracted lease terms</DialogTitle>
+            <DialogDescription>
+              Confirm the values read from this lease before they are saved to
+              the resident record. Blank values were not found and must be
+              entered manually if required.
+            </DialogDescription>
+          </DialogHeader>
+          {leaseReview && leaseValues ? (
+            <div className="grid gap-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                {(
+                  [
+                    ["startDate", "Lease start date", "date"],
+                    ["endDate", "Lease end date", "date"],
+                    ["monthlyRent", "Monthly rent", "number"],
+                    ["securityDeposit", "Security deposit", "number"],
+                    ["rentDueDay", "Rent due day", "number"],
+                    ["gracePeriodDays", "Grace period days", "number"],
+                    ["lateFeeAmount", "Late fee amount", "number"],
+                  ] as const
+                ).map(([key, label, inputType]) => (
+                  <div className="grid gap-1.5" key={key}>
+                    <Label htmlFor={`lease-extracted-${key}`}>{label}</Label>
+                    <input
+                      id={`lease-extracted-${key}`}
+                      className="h-10 rounded-xl border border-input bg-card px-3 text-sm"
+                      type={inputType}
+                      min={inputType === "number" ? 0 : undefined}
+                      step={
+                        key === "monthlyRent" ||
+                        key === "securityDeposit" ||
+                        key === "lateFeeAmount"
+                          ? "0.01"
+                          : "1"
+                      }
+                      value={leaseValues[key]}
+                      onChange={(event) =>
+                        setLeaseValues((current) =>
+                          current
+                            ? { ...current, [key]: event.target.value }
+                            : current,
+                        )
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="rounded-xl bg-muted/50 p-4 text-sm">
+                <p className="font-medium">
+                  Lease length:{" "}
+                  {leaseReview.terms.leaseTermMonths ?? "Not detected"} months
+                </p>
+                {leaseReview.terms.recurringCharges.length > 0 ? (
+                  <p className="mt-2 text-muted-foreground">
+                    Recurring charges:{" "}
+                    {leaseReview.terms.recurringCharges.join(", ")}
+                  </p>
+                ) : null}
+                {leaseReview.terms.oneTimeFees.length > 0 ? (
+                  <p className="mt-2 text-muted-foreground">
+                    One-time fees: {leaseReview.terms.oneTimeFees.join(", ")}
+                  </p>
+                ) : null}
+                {leaseReview.terms.utilitiesResponsibility ? (
+                  <p className="mt-2 text-muted-foreground">
+                    Utilities: {leaseReview.terms.utilitiesResponsibility}
+                  </p>
+                ) : null}
+                {leaseReview.terms.renewalTerms ? (
+                  <p className="mt-2 text-muted-foreground">
+                    Renewal: {leaseReview.terms.renewalTerms}
+                  </p>
+                ) : null}
+                {leaseReview.terms.notes.length > 0 ? (
+                  <p className="mt-2 text-muted-foreground">
+                    Notes: {leaseReview.terms.notes.join(" ")}
+                  </p>
+                ) : null}
+              </div>
+              <div className="flex flex-wrap justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={applyingLease}
+                  onClick={() => {
+                    setLeaseReview(null);
+                    setLeaseValues(null);
+                  }}
+                >
+                  Keep document only
+                </Button>
+                <Button
+                  type="button"
+                  disabled={applyingLease}
+                  onClick={async () => {
+                    if (!leaseValues) return;
+                    setApplyingLease(true);
+                    try {
+                      await api.post(
+                        `${basePath}/${leaseReview.documentId}/lease-terms`,
+                        {
+                          startDate: leaseValues.startDate || undefined,
+                          endDate: leaseValues.endDate || undefined,
+                          monthlyRent: leaseValues.monthlyRent
+                            ? Number(leaseValues.monthlyRent)
+                            : undefined,
+                          securityDeposit: leaseValues.securityDeposit
+                            ? Number(leaseValues.securityDeposit)
+                            : undefined,
+                          rentDueDay: leaseValues.rentDueDay
+                            ? Number(leaseValues.rentDueDay)
+                            : undefined,
+                          gracePeriodDays: leaseValues.gracePeriodDays
+                            ? Number(leaseValues.gracePeriodDays)
+                            : undefined,
+                          lateFeeAmount: leaseValues.lateFeeAmount
+                            ? Number(leaseValues.lateFeeAmount)
+                            : undefined,
+                        },
+                      );
+                      toast.success("Lease terms saved to the resident record");
+                      setLeaseReview(null);
+                      setLeaseValues(null);
+                      await load();
+                    } catch (error: unknown) {
+                      toast.error(
+                        getErrorMessage(error, "Unable to save lease terms"),
+                      );
+                    } finally {
+                      setApplyingLease(false);
+                    }
+                  }}
+                >
+                  {applyingLease ? <Loader2 className="animate-spin" /> : null}
+                  Save lease terms
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
