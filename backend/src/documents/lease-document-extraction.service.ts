@@ -111,6 +111,8 @@ export class LeaseDocumentExtractionService {
         'Confirm the lease start date, end date, monthly rent, and security deposit before saving.',
       );
     }
+    const monthlyRent = terms.monthlyRent;
+    const securityDeposit = terms.securityDeposit;
     const startDate = new Date(terms.startDate);
     const endDate = new Date(terms.endDate);
     if (
@@ -143,8 +145,8 @@ export class LeaseDocumentExtractionService {
           data: {
             startDate,
             endDate,
-            monthlyRent: terms.monthlyRent,
-            securityDeposit: terms.securityDeposit,
+            monthlyRent,
+            securityDeposit,
             rentDueDay: terms.rentDueDay ?? 1,
             gracePeriodDays: terms.gracePeriodDays ?? 5,
             lateFeeAmount: terms.lateFeeAmount ?? 50,
@@ -230,8 +232,8 @@ export class LeaseDocumentExtractionService {
     return {
       leaseId: lease.id,
       leaseTermMonths: this.monthsBetween(startDate, endDate),
-      monthlyRent: terms.monthlyRent,
-      securityDeposit: terms.securityDeposit,
+      monthlyRent,
+      securityDeposit,
       startDate: terms.startDate,
       endDate: terms.endDate,
     };
