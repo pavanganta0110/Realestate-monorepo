@@ -350,7 +350,9 @@ export class StripeClient {
               : undefined,
             responsibilities: {
               fees_collector: 'application',
-              losses_collector: 'stripe',
+              // Owner payouts use destination charges through a recipient
+              // configuration, so the platform must retain loss liability.
+              losses_collector: 'application',
             },
           },
           configuration: {
