@@ -393,6 +393,12 @@ export class LeaseDocumentExtractionService {
     // Keep the ESM-only PDF reader as a literal dynamic import so the Vercel
     // bundler includes it without rewriting it to CommonJS require().
     const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    // PDF.js runs in fake-worker mode on Node. Providing its worker module
+    // directly avoids a second runtime import that Vercel cannot trace.
+    // @ts-expect-error pdfjs-dist does not publish declarations for this worker entry.
+    const pdfjsWorker = await import('pdfjs-dist/legacy/build/pdf.worker.mjs');
+    (globalThis as typeof globalThis & { pdfjsWorker?: unknown }).pdfjsWorker =
+      pdfjsWorker;
     const pdf = await pdfjs.getDocument({ data: bytes }).promise;
     const pages: string[] = [];
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
