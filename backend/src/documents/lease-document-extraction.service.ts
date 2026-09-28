@@ -6,7 +6,6 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
-import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { createClient } from '@supabase/supabase-js';
 import { CHATBOT_MODEL } from '../chatbot/chatbot.constants';
 import { PrismaService } from '../prisma/prisma.service';
@@ -391,6 +390,9 @@ export class LeaseDocumentExtractionService {
   }
 
   private async pdfText(bytes: Uint8Array) {
+    // Keep the ESM-only PDF reader as a literal dynamic import so the Vercel
+    // bundler includes it without rewriting it to CommonJS require().
+    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
     const pdf = await pdfjs.getDocument({ data: bytes }).promise;
     const pages: string[] = [];
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
