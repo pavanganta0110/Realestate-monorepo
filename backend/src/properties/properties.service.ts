@@ -115,16 +115,16 @@ export class PropertiesService {
         'Add at least one listing photo before publishing',
       );
     }
-    const availableUnits = property.units.filter(
-      (unit) => unit.status === 'vacant' && unit.rentAmount != null,
+    const unitsWithRent = property.units.filter(
+      (unit) => unit.rentAmount != null,
     );
     if (
       property.status === 'active' &&
       property.rentAmount == null &&
-      availableUnits.length === 0
+      unitsWithRent.length === 0
     ) {
       throw new BadRequestException(
-        'Add a property rent amount or at least one vacant unit with rent before publishing',
+        'Add a property rent amount or rent to at least one unit before publishing',
       );
     }
   }

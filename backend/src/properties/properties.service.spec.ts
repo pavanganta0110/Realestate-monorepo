@@ -88,6 +88,38 @@ describe('PropertiesService rental publishing', () => {
     jest.useRealTimers();
   });
 
+  it('publishes a multi-unit rental when occupied units have individual rents', async () => {
+    const property = {
+      ...baseRental,
+      rentAmount: null,
+      units: [
+        { id: 'unit-1', status: 'occupied', rentAmount: 1325 },
+        { id: 'unit-2', status: 'occupied', rentAmount: 1250 },
+      ],
+    };
+    const tx = {
+      property: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        findUniqueOrThrow: jest.fn().mockResolvedValue({
+          ...property,
+          publishStatus: PublishStatus.PUBLISHED,
+        }),
+      },
+      auditLog: { create: jest.fn().mockResolvedValue({}) },
+    };
+    const prisma = {
+      property: { findFirst: jest.fn().mockResolvedValue(property) },
+      $transaction: jest.fn(
+        async (callback: (client: typeof tx) => Promise<unknown>) =>
+          callback(tx),
+      ),
+    };
+
+    await expect(
+      serviceWith(prisma).publish('admin-1', 'rental-1'),
+    ).resolves.toMatchObject({ publishStatus: PublishStatus.PUBLISHED });
+  });
+
   it.each([
     {
       name: 'is published',
