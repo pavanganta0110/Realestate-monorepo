@@ -12,9 +12,10 @@ import { ApplyLeaseTermsDto } from './dto/tenant-document.dto';
 
 const DOCUMENT_BUCKET = 'tenant-documents';
 const GEMINI_URLS = [
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent',
   'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent',
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent',
 ] as const;
+const GEMINI_TOTAL_TIMEOUT_MS = 25_000;
 const PDF_TEXT_LIMIT = 60_000;
 const ACTIVE_LEASE_STATUSES = ['active', 'expiring', 'renewed'];
 
@@ -292,27 +293,20 @@ export class LeaseDocumentExtractionService {
       },
     });
     let response: Response | undefined;
+    const deadline = Date.now() + GEMINI_TOTAL_TIMEOUT_MS;
     for (const url of GEMINI_URLS) {
-      for (let attempt = 0; attempt < 3; attempt += 1) {
-        response = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'x-goog-api-key': apiKey,
-            'Content-Type': 'application/json',
-          },
-          body: requestBody,
-          signal: AbortSignal.timeout(45_000),
-        });
-        const retryable = [429, 500, 502, 503, 504].includes(response.status);
-        if (!retryable || attempt === 2) break;
-        await new Promise((resolve) =>
-          setTimeout(resolve, 1000 * (attempt + 1)),
-        );
-      }
-      if (
-        response &&
-        (response.ok || ![429, 500, 502, 503, 504].includes(response.status))
-      )
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) break;
+      response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'x-goog-api-key': apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: requestBody,
+        signal: AbortSignal.timeout(remaining),
+      });
+      if (response.ok || ![429, 500, 502, 503, 504].includes(response.status))
         break;
     }
     if (!response) throw new Error('The lease reader did not respond');
