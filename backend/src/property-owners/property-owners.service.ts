@@ -118,6 +118,58 @@ export class PropertyOwnersService {
     return changed;
   }
 
+  async remove(userId: string, id: string) {
+    const owner = await this.prisma.propertyOwner.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        ownerName: true,
+        companyName: true,
+        stripeConnectedAccountId: true,
+        _count: {
+          select: {
+            properties: true,
+            payments: true,
+            moveInCharges: true,
+            moveInInspections: true,
+            moveInAcknowledgements: true,
+            expenseLedgerEntries: true,
+          },
+        },
+      },
+    });
+    if (!owner) throw new NotFoundException('Property owner not found');
+    if (owner.stripeConnectedAccountId) {
+      throw new ConflictException(
+        'This owner has a connected payout account. Disable or disconnect payouts before deleting the owner.',
+      );
+    }
+    const linkedRecords = Object.entries(owner._count).filter(
+      ([, count]) => count > 0,
+    );
+    if (linkedRecords.length > 0) {
+      throw new ConflictException(
+        'This owner has linked properties or financial history and cannot be deleted. Remove those links first.',
+      );
+    }
+    await this.prisma.$transaction(async (tx) => {
+      await tx.auditLog.create({
+        data: {
+          userId,
+          action: 'PROPERTY_OWNER_DELETED',
+          resource: 'property_owner',
+          resourceId: id,
+          oldValue: JSON.stringify({
+            ownerName: owner.ownerName,
+            companyName: owner.companyName,
+          }),
+        },
+      });
+      await tx.propertyOwner.delete({ where: { id } });
+    });
+    return { deleted: true };
+  }
+
   private onboardingUrls(ownerId: string) {
     const base =
       this.config.get<string>('RENTAL_ADMIN_URL') ||

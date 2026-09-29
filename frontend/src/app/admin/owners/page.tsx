@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { Loader2, Pencil, Save, Send, UserRoundPlus, X } from "lucide-react";
+import { Loader2, Pencil, Save, Send, Trash2, UserRoundPlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -19,7 +19,7 @@ type Owner = {
   commissionRate: number;
   payoutStatus: "PENDING_ONBOARDING" | "ACTIVE" | "RESTRICTED" | "DISABLED";
   stripeConnectedAccountId: string | null;
-  _count: { properties: number };
+  _count: { properties: number; payments: number };
 };
 
 const emptyOwner = {
@@ -41,6 +41,7 @@ export default function AdminOwnersPage() {
   );
   const [editingOwnerId, setEditingOwnerId] = useState<string | null>(null);
   const [savingOwnerId, setSavingOwnerId] = useState<string | null>(null);
+  const [deletingOwnerId, setDeletingOwnerId] = useState<string | null>(null);
   const [ownerDraft, setOwnerDraft] = useState({
     ownerName: "",
     companyName: "",
@@ -169,6 +170,21 @@ export default function AdminOwnersPage() {
       toast.error(getErrorMessage(error, "Unable to update owner information"));
     } finally {
       setSavingOwnerId(null);
+    }
+  }
+
+  async function deleteOwner(owner: Owner) {
+    const label = owner.companyName || owner.ownerName || owner.contactEmail;
+    if (!window.confirm(`Delete ${label}? This cannot be undone.`)) return;
+    setDeletingOwnerId(owner.id);
+    try {
+      await api.delete(`/property-owners/${owner.id}`);
+      await loadOwners();
+      toast.success("Property owner deleted");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Unable to delete property owner"));
+    } finally {
+      setDeletingOwnerId(null);
     }
   }
 
@@ -450,6 +466,31 @@ export default function AdminOwnersPage() {
                     {owner.payoutStatus === "ACTIVE"
                       ? "Payouts active"
                       : "Send payout setup"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="border-destructive/30 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                    disabled={
+                      deletingOwnerId !== null ||
+                      owner._count.properties > 0 ||
+                      (owner._count.payments ?? 0) > 0 ||
+                      Boolean(owner.stripeConnectedAccountId)
+                    }
+                    title={
+                      owner._count.properties > 0 ||
+                      (owner._count.payments ?? 0) > 0 ||
+                      owner.stripeConnectedAccountId
+                        ? "Owners with linked properties, payments, or payout accounts cannot be deleted"
+                        : "Delete owner"
+                    }
+                    onClick={() => void deleteOwner(owner)}
+                  >
+                    {deletingOwnerId === owner.id ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="size-4" />
+                    )}
+                    Delete owner
                   </Button>
                 </div>
               </div>

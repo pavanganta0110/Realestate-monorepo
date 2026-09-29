@@ -708,6 +708,7 @@ export class EmailsService {
     balanceDue = 0,
     name?: string,
     eventKey?: string,
+    context: { tenantId?: string; propertyId?: string; unitId?: string; sentByUserId?: string } = {},
   ) {
     return this.sendTemplate(
       email,
@@ -720,6 +721,7 @@ export class EmailsService {
         url: this.portal('/tenant/payments', 'tenant'),
       },
       eventKey ?? paymentId,
+      context,
     );
   }
 

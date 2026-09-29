@@ -383,6 +383,7 @@ export class PaymentsService {
         payment.balanceDue,
         name,
         `${payment.id}-${payment.status}-${payment.updatedAt.toISOString()}`,
+        { tenantId: payment.tenantId, unitId: payment.unitId },
       );
     }
     return payment;
@@ -596,6 +597,7 @@ export class PaymentsService {
         updatedPayment.balanceDue,
         name,
         `${updatedPayment.id}-${updatedPayment.status}-${updatedPayment.updatedAt.toISOString()}`,
+        { tenantId: updatedPayment.tenantId, unitId: updatedPayment.unitId },
       );
     }
     return updatedPayment;
@@ -862,6 +864,7 @@ export class PaymentsService {
       settled.balanceDue,
       tenantName,
       `stripe-checkout-${sessionId}`,
+      { tenantId: settled.tenantId, unitId: settled.unitId },
     );
     if (settled.ownerProceedsAmount && settled.ownerProceedsAmount.gt(0)) {
       await this.emails.sendOwnerPayout(

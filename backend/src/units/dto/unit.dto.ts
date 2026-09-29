@@ -40,7 +40,7 @@ export class CreateUnitDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
-  @Min(1)
+  @Min(0)
   @Max(10000000)
   squareFeet?: number;
   @IsOptional()
@@ -84,7 +84,7 @@ export class UpdateUnitDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
-  @Min(1)
+  @Min(0)
   @Max(10000000)
   squareFeet?: number;
   @IsOptional()

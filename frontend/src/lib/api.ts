@@ -22,13 +22,16 @@ async function apiFetch(endpoint: string, options: RequestInit = {}) {
 
   if (!response.ok) {
     const error: unknown = await response.json().catch(() => null);
-    const message =
+    const rawMessage =
       typeof error === "object" &&
       error !== null &&
       "message" in error &&
-      typeof error.message === "string"
+      (typeof error.message === "string" || Array.isArray(error.message))
         ? error.message
-        : "API request failed";
+        : null;
+    const message = Array.isArray(rawMessage)
+      ? rawMessage.join("; ")
+      : rawMessage || "API request failed";
     throw new Error(message);
   }
 

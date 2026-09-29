@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -50,6 +51,14 @@ export class PropertyOwnersController {
     @Request() request: RequiredAuthenticatedRequest,
   ) {
     return this.owners.update(request.user.sub, id, data);
+  }
+
+  @Delete(':id')
+  remove(
+    @Param('id') id: string,
+    @Request() request: RequiredAuthenticatedRequest,
+  ) {
+    return this.owners.remove(request.user.sub, id);
   }
 
   @Post(':id/stripe-onboarding')

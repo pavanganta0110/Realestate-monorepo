@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { ArrowLeft, CreditCard, Loader2, Mail, MessageSquare, Pencil, Send } from "lucide-react";
+import { ArrowLeft, Loader2, Mail, MessageSquare, Pencil, Send } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { TenantDocumentManager } from "@/components/portal/tenant-document-manager";
 import { PaymentManagementDialog } from "../../payments/_components/payment-management-dialog";
+import { RecordPaymentDialog } from "./_components/record-payment-dialog";
 import { dateLabel, money, tabs, type ChatThread, type EmailHistory, type Tab, type TenantDetail } from "./_components/tenant-detail-types";
 
 export default function TenantDetailPage() {
@@ -174,10 +175,14 @@ export default function TenantDetailPage() {
               <MessageSquare />
               Send Chat
             </Button>
-            <Button variant="outline" onClick={() => setTab("Rent & Payments")}>
-              <CreditCard />
-              Record Payment
-            </Button>
+            <div onClick={() => setTab("Rent & Payments")}>
+              <RecordPaymentDialog
+                tenantId={tenant.id}
+                unitId={tenant.unit?.id}
+                leases={tenant.leases}
+                onSaved={load}
+              />
+            </div>
             <Button variant="outline" onClick={() => setEditOpen(true)}>
               <Pencil />
               Edit Tenant
@@ -270,6 +275,14 @@ export default function TenantDetailPage() {
 
       {tab === "Rent & Payments" ? (
         <section className="space-y-3">
+          <div className="flex justify-end">
+            <RecordPaymentDialog
+              tenantId={tenant.id}
+              unitId={tenant.unit?.id}
+              leases={tenant.leases}
+              onSaved={load}
+            />
+          </div>
           {tenant.payments.map((payment) => (
             <article key={payment.id} className="rounded-xl border border-border bg-card p-5">
               <div className="flex flex-wrap items-start justify-between gap-3">

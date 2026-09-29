@@ -26,6 +26,11 @@ export const repositoryStandards = {
       reason:
         "Cohesive private-document workflow shared by resident and admin portals, including secure upload, document access, removal, lease extraction review, and term application.",
     },
+    "frontend/src/app/admin/owners/page.tsx": {
+      maxLines: 520,
+      reason:
+        "Cohesive owner workspace covering owner creation, editing, payout onboarding, commission management, and guarded deletion.",
+    },
     "backend/src/e-signatures/e-signatures.service.ts": {
       maxLines: 1200,
       reason:
