@@ -10,6 +10,10 @@ import { Prisma } from '@prisma/client';
 import { createClient } from '@supabase/supabase-js';
 import { PrismaService } from '../prisma/prisma.service';
 import { ApplyLeaseTermsDto } from './dto/tenant-document.dto';
+// pdfjs-dist does not publish declarations for the worker entry. Keep this a
+// static import so the Vercel function bundles the worker with the API.
+// @ts-expect-error pdfjs-dist worker entry has no published declaration.
+import * as pdfjsWorker from 'pdfjs-dist/legacy/build/pdf.worker.mjs';
 
 const DOCUMENT_BUCKET = 'tenant-documents';
 const GEMINI_URL =
@@ -565,10 +569,9 @@ export class LeaseDocumentExtractionService {
   }
 
   private async pdfEngine() {
-    // Serverless Node functions do not need a browser PDF worker. Keeping the
-    // engine import worker-free also prevents Vercel from trying to bundle the
-    // browser worker as a separate runtime module.
     const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    (globalThis as typeof globalThis & { pdfjsWorker?: unknown }).pdfjsWorker =
+      pdfjsWorker;
     return pdfjs;
   }
 
