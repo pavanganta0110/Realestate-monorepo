@@ -281,22 +281,30 @@ export class LeaseDocumentExtractionService {
     content: unknown,
     apiKey: string,
   ): Promise<ExtractedLeaseTerms> {
-    const response = await fetch(GEMINI_URL, {
-      method: 'POST',
-      headers: {
-        'x-goog-api-key': apiKey,
-        'Content-Type': 'application/json',
+    const requestBody = JSON.stringify({
+      contents: [{ role: 'user', parts: await this.geminiParts(content) }],
+      generationConfig: {
+        temperature: 0,
+        maxOutputTokens: 1400,
+        responseMimeType: 'application/json',
       },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: await this.geminiParts(content) }],
-        generationConfig: {
-          temperature: 0,
-          maxOutputTokens: 1400,
-          responseMimeType: 'application/json',
-        },
-      }),
-      signal: AbortSignal.timeout(45_000),
     });
+    let response: Response | undefined;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      response = await fetch(GEMINI_URL, {
+        method: 'POST',
+        headers: {
+          'x-goog-api-key': apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: requestBody,
+        signal: AbortSignal.timeout(45_000),
+      });
+      const retryable = [429, 500, 502, 503, 504].includes(response.status);
+      if (!retryable || attempt === 2) break;
+      await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));
+    }
+    if (!response) throw new Error('The lease reader did not respond');
     if (!response.ok) {
       const details = await response.text();
       throw new Error(
