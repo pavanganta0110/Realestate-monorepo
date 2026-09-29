@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { Loader2, Save, Send, UserRoundPlus } from "lucide-react";
+import { Loader2, Pencil, Save, Send, UserRoundPlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ type Owner = {
   ownerName: string | null;
   companyName: string | null;
   contactEmail: string;
+  contactPhone: string | null;
   commissionRate: number;
   payoutStatus: "PENDING_ONBOARDING" | "ACTIVE" | "RESTRICTED" | "DISABLED";
   stripeConnectedAccountId: string | null;
@@ -38,6 +39,14 @@ export default function AdminOwnersPage() {
   const [savingCommissionId, setSavingCommissionId] = useState<string | null>(
     null,
   );
+  const [editingOwnerId, setEditingOwnerId] = useState<string | null>(null);
+  const [savingOwnerId, setSavingOwnerId] = useState<string | null>(null);
+  const [ownerDraft, setOwnerDraft] = useState({
+    ownerName: "",
+    companyName: "",
+    contactEmail: "",
+    contactPhone: "",
+  });
   const [commissionDrafts, setCommissionDrafts] = useState<
     Record<string, string>
   >({});
@@ -121,6 +130,45 @@ export default function AdminOwnersPage() {
       toast.error(getErrorMessage(error, "Unable to update commission"));
     } finally {
       setSavingCommissionId(null);
+    }
+  }
+
+  function startEditingOwner(owner: Owner) {
+    setEditingOwnerId(owner.id);
+    setOwnerDraft({
+      ownerName: owner.ownerName ?? "",
+      companyName: owner.companyName ?? "",
+      contactEmail: owner.contactEmail,
+      contactPhone: owner.contactPhone ?? "",
+    });
+  }
+
+  async function saveOwnerDetails(owner: Owner) {
+    const ownerName = ownerDraft.ownerName.trim();
+    const contactEmail = ownerDraft.contactEmail.trim();
+    if (ownerName.length < 2) {
+      toast.error("Owner name must be at least 2 characters");
+      return;
+    }
+    if (!contactEmail) {
+      toast.error("Owner email is required");
+      return;
+    }
+    setSavingOwnerId(owner.id);
+    try {
+      await api.patch(`/property-owners/${owner.id}`, {
+        ownerName,
+        companyName: ownerDraft.companyName.trim() || undefined,
+        contactEmail,
+        contactPhone: ownerDraft.contactPhone.trim() || undefined,
+      });
+      setEditingOwnerId(null);
+      await loadOwners();
+      toast.success("Owner information updated");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Unable to update owner information"));
+    } finally {
+      setSavingOwnerId(null);
     }
   }
 
@@ -287,25 +335,123 @@ export default function AdminOwnersPage() {
                       Save rate
                     </Button>
                   </div>
+                  {editingOwnerId === owner.id ? (
+                    <div className="mt-5 grid gap-3 rounded-xl border border-border bg-muted/30 p-4 sm:grid-cols-2">
+                      <div className="grid gap-2">
+                        <Label htmlFor={`edit-owner-name-${owner.id}`}>
+                          Owner name
+                        </Label>
+                        <Input
+                          id={`edit-owner-name-${owner.id}`}
+                          value={ownerDraft.ownerName}
+                          onChange={(event) =>
+                            setOwnerDraft({
+                              ...ownerDraft,
+                              ownerName: event.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor={`edit-company-name-${owner.id}`}>
+                          Company name
+                        </Label>
+                        <Input
+                          id={`edit-company-name-${owner.id}`}
+                          value={ownerDraft.companyName}
+                          onChange={(event) =>
+                            setOwnerDraft({
+                              ...ownerDraft,
+                              companyName: event.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor={`edit-owner-email-${owner.id}`}>
+                          Email
+                        </Label>
+                        <Input
+                          id={`edit-owner-email-${owner.id}`}
+                          type="email"
+                          value={ownerDraft.contactEmail}
+                          onChange={(event) =>
+                            setOwnerDraft({
+                              ...ownerDraft,
+                              contactEmail: event.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor={`edit-owner-phone-${owner.id}`}>
+                          Phone
+                        </Label>
+                        <Input
+                          id={`edit-owner-phone-${owner.id}`}
+                          value={ownerDraft.contactPhone}
+                          onChange={(event) =>
+                            setOwnerDraft({
+                              ...ownerDraft,
+                              contactPhone: event.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="flex gap-2 sm:col-span-2">
+                        <Button
+                          type="button"
+                          disabled={savingOwnerId !== null}
+                          onClick={() => void saveOwnerDetails(owner)}
+                        >
+                          {savingOwnerId === owner.id ? (
+                            <Loader2 className="size-4 animate-spin" />
+                          ) : (
+                            <Save className="size-4" />
+                          )}
+                          Save information
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={savingOwnerId !== null}
+                          onClick={() => setEditingOwnerId(null)}
+                        >
+                          <X className="size-4" />
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
-                <Button
-                  variant={
-                    owner.payoutStatus === "ACTIVE" ? "outline" : "default"
-                  }
-                  disabled={
-                    invitingId !== null || owner.payoutStatus === "ACTIVE"
-                  }
-                  onClick={() => inviteOwner(owner)}
-                >
-                  {invitingId === owner.id ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Send className="size-4" />
-                  )}
-                  {owner.payoutStatus === "ACTIVE"
-                    ? "Payouts active"
-                    : "Send payout setup"}
-                </Button>
+                <div className="flex flex-wrap gap-2 lg:justify-end">
+                  <Button
+                    variant="outline"
+                    onClick={() => startEditingOwner(owner)}
+                    disabled={savingOwnerId !== null}
+                  >
+                    <Pencil className="size-4" />
+                    Edit owner
+                  </Button>
+                  <Button
+                    variant={
+                      owner.payoutStatus === "ACTIVE" ? "outline" : "default"
+                    }
+                    disabled={
+                      invitingId !== null || owner.payoutStatus === "ACTIVE"
+                    }
+                    onClick={() => inviteOwner(owner)}
+                  >
+                    {invitingId === owner.id ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Send className="size-4" />
+                    )}
+                    {owner.payoutStatus === "ACTIVE"
+                      ? "Payouts active"
+                      : "Send payout setup"}
+                  </Button>
+                </div>
               </div>
             ))
           )}
