@@ -10,7 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, Calendar, Loader2 } from "lucide-react";
+import { Plus, Search, Calendar, Loader2, Upload } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -31,6 +31,7 @@ import { cn } from "@/lib/utils";
 import { getErrorMessage } from "@/lib/errors";
 import { LeaseRentPolicyDialog } from "./_components/lease-rent-policy-dialog";
 import { LeaseLifecycleLink } from "./_components/lease-lifecycle-link";
+import { TenantDocumentManager } from "@/components/portal/tenant-document-manager";
 
 type LeaseTenant = { id: string; firstName: string; lastName: string };
 type LeaseUnit = {
@@ -216,6 +217,8 @@ export default function AdminLeases() {
   const [creating, setCreating] = useState(false);
   const creatingRef = useRef(false);
   const [open, setOpen] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadTenantId, setUploadTenantId] = useState("");
   const [query, setQuery] = useState("");
 
   const [formData, setFormData] = useState({
@@ -310,6 +313,7 @@ export default function AdminLeases() {
     if (unit.status === "vacant") available.push(unit);
     return available;
   }, []);
+  const uploadTenant = tenants.find((tenant) => tenant.id === uploadTenantId);
 
   if (loading) {
     return (
@@ -331,16 +335,79 @@ export default function AdminLeases() {
           </p>
         </div>
 
-        <LeaseCreateDialog
-          open={open}
-          creating={creating}
-          form={formData}
-          tenants={tenants}
-          units={vacantUnits}
-          onOpenChange={setOpen}
-          onFormChange={setFormData}
-          onSubmit={handleCreateLease}
-        />
+        <div className="flex flex-wrap gap-3">
+          <Dialog
+            open={uploadOpen}
+            onOpenChange={(nextOpen) => {
+              setUploadOpen(nextOpen);
+              if (!nextOpen) setUploadTenantId("");
+            }}
+          >
+            <DialogTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="px-6 py-6 rounded-2xl font-heading font-bold text-[10px] uppercase tracking-widest"
+                />
+              }
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              Upload lease document
+            </DialogTrigger>
+            <DialogContent className="max-h-[90dvh] overflow-y-auto rounded-xl border-border bg-card p-5 sm:max-w-4xl sm:p-6">
+              <DialogHeader className="mb-5">
+                <DialogTitle className="text-xl font-semibold font-heading">
+                  Upload lease document
+                </DialogTitle>
+                <DialogDescription className="mt-2 text-muted-foreground font-medium">
+                  Select the resident first, then upload their signed lease.
+                  The file will be attached to that resident and can be
+                  analyzed without creating a duplicate lease.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="lease-upload-tenant">Select resident</Label>
+                  <select
+                    id="lease-upload-tenant"
+                    className="h-12 w-full rounded-xl border border-input bg-card px-4 font-medium text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                    value={uploadTenantId}
+                    onChange={(event) => setUploadTenantId(event.target.value)}
+                  >
+                    <option value="">Choose a resident…</option>
+                    {tenants.map((tenant) => (
+                      <option key={tenant.id} value={tenant.id}>
+                        {tenant.firstName} {tenant.lastName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {uploadTenant ? (
+                  <TenantDocumentManager
+                    key={uploadTenant.id}
+                    tenantId={uploadTenant.id}
+                    tenantName={`${uploadTenant.firstName} ${uploadTenant.lastName}`}
+                  />
+                ) : (
+                  <div className="rounded-xl bg-muted/50 p-4 text-sm text-muted-foreground">
+                    Select a resident to show the lease upload controls.
+                  </div>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+          <LeaseCreateDialog
+            open={open}
+            creating={creating}
+            form={formData}
+            tenants={tenants}
+            units={vacantUnits}
+            onOpenChange={setOpen}
+            onFormChange={setFormData}
+            onSubmit={handleCreateLease}
+          />
+        </div>
       </div>
 
       <div className="flex items-center gap-4">

@@ -12,6 +12,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { createAuthActionUrl } from './auth-action-url';
 import { TenantAdminInviteDto } from './dto/tenant-admin-invite.dto';
 
+const STAFF_ROLES = [Role.SUPER_ADMIN, Role.SALES_ADMIN, Role.TENANT_ADMIN];
+
 @Injectable()
 export class TenantAdminProvisioningService {
   constructor(
@@ -100,5 +102,59 @@ export class TenantAdminProvisioningService {
       await this.adminClient().auth.admin.deleteUser(invited.user.id);
       throw error;
     }
+  }
+
+  async listStaff() {
+    const users = await this.prisma.user.findMany({
+      where: { role: { in: STAFF_ROLES } },
+      select: {
+        id: true,
+        authUserId: true,
+        email: true,
+        role: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      take: 250,
+    });
+    const authUsers = await this.adminClient().auth.admin.listUsers({
+      page: 1,
+      perPage: 1000,
+    });
+    if (authUsers.error) {
+      throw new BadRequestException('Unable to load staff account details');
+    }
+    const authById = new Map(
+      authUsers.data.users.map((user) => [user.id, user]),
+    );
+    return users.map((user) => {
+      const authUser = authById.get(user.authUserId);
+      const metadata = authUser?.user_metadata;
+      const firstName =
+        metadata && typeof metadata.firstName === 'string'
+          ? metadata.firstName
+          : metadata && typeof metadata.first_name === 'string'
+            ? metadata.first_name
+            : null;
+      const lastName =
+        metadata && typeof metadata.lastName === 'string'
+          ? metadata.lastName
+          : metadata && typeof metadata.last_name === 'string'
+            ? metadata.last_name
+            : null;
+      return {
+        id: user.id,
+        firstName,
+        lastName,
+        email: user.email,
+        role: user.role,
+        status: user.status,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+        lastSignInAt: authUser?.last_sign_in_at ?? null,
+      };
+    });
   }
 }

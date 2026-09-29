@@ -88,4 +88,11 @@ export class AuthController {
   ) {
     return this.tenantAdminProvisioning.invite(body, request.user.sub);
   }
+
+  @Get('tenant-administrators')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPER_ADMIN)
+  listTenantAdministrators() {
+    return this.tenantAdminProvisioning.listStaff();
+  }
 }

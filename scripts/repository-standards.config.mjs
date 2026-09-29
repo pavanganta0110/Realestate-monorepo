@@ -1,6 +1,31 @@
 export const repositoryStandards = {
   maxSourceLines: 500,
   oversizedFileAllowances: {
+    "backend/src/documents/lease-document-extraction.service.ts": {
+      maxLines: 560,
+      reason:
+        "Cohesive lease-document workflow covering secure retrieval, Gemini extraction, term normalization, review application, occupancy updates, and audit history.",
+    },
+    "backend/src/stripe/stripe-client.service.ts": {
+      maxLines: 560,
+      reason:
+        "Cohesive Stripe boundary covering Connect onboarding, payouts, payment intents, checkout, webhook helpers, and platform configuration handling.",
+    },
+    "frontend/src/app/admin/announcements/page.tsx": {
+      maxLines: 620,
+      reason:
+        "Cohesive admin announcement workspace covering audience selection, property and unit targeting, acknowledgement state, creation, editing, and publishing.",
+    },
+    "frontend/src/app/admin/leases/page.tsx": {
+      maxLines: 600,
+      reason:
+        "Cohesive admin lease workspace covering lease creation, document upload entry point, resident selection, rent policy updates, search, status changes, and lifecycle navigation.",
+    },
+    "frontend/src/components/portal/tenant-document-manager.tsx": {
+      maxLines: 620,
+      reason:
+        "Cohesive private-document workflow shared by resident and admin portals, including secure upload, document access, removal, lease extraction review, and term application.",
+    },
     "backend/src/e-signatures/e-signatures.service.ts": {
       maxLines: 1200,
       reason:
