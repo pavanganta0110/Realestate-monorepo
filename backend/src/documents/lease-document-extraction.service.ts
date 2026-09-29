@@ -565,14 +565,9 @@ export class LeaseDocumentExtractionService {
   }
 
   private async pdfEngine() {
-    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
-    // Keep the ESM worker lazy so it cannot crash API startup, while keeping
-    // the literal import path so Vercel includes the worker in the bundle.
-    // @ts-expect-error pdfjs-dist worker entry has no published declaration.
-    const pdfjsWorker = await import('pdfjs-dist/legacy/build/pdf.worker.mjs');
-    (globalThis as typeof globalThis & { pdfjsWorker?: unknown }).pdfjsWorker =
-      pdfjsWorker;
-    return pdfjs;
+    // PDF.js disables workers by default in Node.js. Do not attach the browser
+    // worker here: Node's worker transfer path cannot clone PDF.js objects.
+    return import('pdfjs-dist/legacy/build/pdf.mjs');
   }
 
   private contentType(name: string) {
