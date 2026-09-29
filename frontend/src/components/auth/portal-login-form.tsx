@@ -47,7 +47,7 @@ export function PortalLoginForm({
     event.preventDefault();
     setLoading(true);
     try {
-      const authenticatedUser = await login(email, password, portal);
+      const authenticatedUser = await login(email.trim(), password, portal);
       toast.success("Signed in");
       navigateToUserPortal(router, authenticatedUser);
     } catch (error: unknown) {
@@ -62,7 +62,18 @@ export function PortalLoginForm({
       <form onSubmit={submit} className="grid gap-5">
         <div className="grid gap-2">
           <Label htmlFor="portal-email">Email address</Label>
-          <Input id="portal-email" name="email" type="email" autoComplete="email" placeholder="name@company.com" value={email} onChange={(event) => setEmail(event.target.value)} required />
+          <Input
+            id="portal-email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            inputMode="email"
+            placeholder="name@company.com"
+            value={email}
+            onChange={(event) => setEmail(event.target.value.trim())}
+            onBlur={() => setEmail((currentEmail) => currentEmail.trim())}
+            required
+          />
         </div>
         <div className="grid gap-2">
           <div className="flex items-center justify-between gap-3">
