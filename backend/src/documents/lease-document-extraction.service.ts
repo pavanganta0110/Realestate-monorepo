@@ -11,11 +11,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ApplyLeaseTermsDto } from './dto/tenant-document.dto';
 
 const DOCUMENT_BUCKET = 'tenant-documents';
-const GEMINI_URLS = [
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent',
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent',
-] as const;
-const GEMINI_TOTAL_TIMEOUT_MS = 25_000;
+const GEMINI_URL =
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent';
+const GEMINI_TIMEOUT_MS = 45_000;
 const PDF_TEXT_LIMIT = 60_000;
 const ACTIVE_LEASE_STATUSES = ['active', 'expiring', 'renewed'];
 
@@ -292,24 +290,15 @@ export class LeaseDocumentExtractionService {
         responseMimeType: 'application/json',
       },
     });
-    let response: Response | undefined;
-    const deadline = Date.now() + GEMINI_TOTAL_TIMEOUT_MS;
-    for (const url of GEMINI_URLS) {
-      const remaining = deadline - Date.now();
-      if (remaining <= 0) break;
-      response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'x-goog-api-key': apiKey,
-          'Content-Type': 'application/json',
-        },
-        body: requestBody,
-        signal: AbortSignal.timeout(remaining),
-      });
-      if (response.ok || ![429, 500, 502, 503, 504].includes(response.status))
-        break;
-    }
-    if (!response) throw new Error('The lease reader did not respond');
+    const response = await fetch(GEMINI_URL, {
+      method: 'POST',
+      headers: {
+        'x-goog-api-key': apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: requestBody,
+      signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
+    });
     if (!response.ok) {
       const details = await response.text();
       throw new Error(
