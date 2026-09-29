@@ -13,7 +13,7 @@ import { ApplyLeaseTermsDto } from './dto/tenant-document.dto';
 const DOCUMENT_BUCKET = 'tenant-documents';
 const GEMINI_URLS = [
   'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent',
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent',
 ] as const;
 const PDF_TEXT_LIMIT = 60_000;
 const ACTIVE_LEASE_STATUSES = ['active', 'expiring', 'renewed'];
