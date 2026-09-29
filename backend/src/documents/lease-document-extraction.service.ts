@@ -8,16 +8,15 @@ import { ConfigService } from '@nestjs/config';
 import { createCanvas } from '@napi-rs/canvas';
 import { Prisma } from '@prisma/client';
 import { createClient } from '@supabase/supabase-js';
-import { CHATBOT_MODEL } from '../chatbot/chatbot.constants';
 import { PrismaService } from '../prisma/prisma.service';
 import { ApplyLeaseTermsDto } from './dto/tenant-document.dto';
 
 const DOCUMENT_BUCKET = 'tenant-documents';
-const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const GEMINI_URL =
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 const PDF_TEXT_LIMIT = 60_000;
 const PDF_VISION_PAGE_LIMIT = 9;
 const PDF_VISION_BATCH_SIZE = 3;
-const LEASE_VISION_MODEL = 'qwen/qwen3.8-27b';
 const ACTIVE_LEASE_STATUSES = ['active', 'expiring', 'renewed'];
 
 export type ExtractedLeaseTerms = {
@@ -56,10 +55,10 @@ export class LeaseDocumentExtractionService {
 
   async extract(tenantId: string, documentId: string) {
     const document = await this.findLeaseDocument(tenantId, documentId);
-    const apiKey = this.config.get<string>('GROQ_API_KEY')?.trim();
+    const apiKey = this.config.get<string>('GEMINI_API_KEY')?.trim();
     if (!apiKey) {
       throw new InternalServerErrorException(
-        'Lease extraction is not configured. Add GROQ_API_KEY to the API environment.',
+        'Lease extraction is not configured. Add GEMINI_API_KEY to the API environment.',
       );
     }
 
@@ -263,14 +262,14 @@ export class LeaseDocumentExtractionService {
         { type: 'text', text: this.prompt('Read the attached lease image.') },
         { type: 'image_url', image_url: { url: signedUrl } },
       ];
-      return this.requestTerms(content, apiKey, LEASE_VISION_MODEL);
+      return this.requestTerms(content, apiKey);
     } else {
       throw new Error(
         'Lease extraction supports PDF, JPEG, PNG, and WebP files.',
       );
     }
 
-    return this.requestTerms(content, apiKey, CHATBOT_MODEL);
+    return this.requestTerms(content, apiKey);
   }
 
   private async extractScannedPdfTerms(
@@ -299,7 +298,7 @@ export class LeaseDocumentExtractionService {
       ];
       merged = this.mergeTerms(
         merged,
-        await this.requestTerms(content, apiKey, LEASE_VISION_MODEL),
+        await this.requestTerms(content, apiKey),
       );
     }
 
@@ -319,29 +318,38 @@ export class LeaseDocumentExtractionService {
   private async requestTerms(
     content: unknown,
     apiKey: string,
-    model: string,
   ): Promise<ExtractedLeaseTerms> {
-    const response = await fetch(GROQ_URL, {
+    const response = await fetch(GEMINI_URL, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        'x-goog-api-key': apiKey,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model,
-        messages: [{ role: 'user', content }],
-        temperature: 0,
-        max_completion_tokens: 1400,
-        response_format: { type: 'json_object' },
+        contents: [{ role: 'user', parts: await this.geminiParts(content) }],
+        generationConfig: {
+          temperature: 0,
+          maxOutputTokens: 1400,
+          responseMimeType: 'application/json',
+        },
       }),
       signal: AbortSignal.timeout(45_000),
     });
-    if (!response.ok)
-      throw new Error(`Lease extraction failed (${response.status})`);
+    if (!response.ok) {
+      const details = await response.text();
+      throw new Error(
+        `Gemini lease extraction failed (${response.status}): ${details.slice(0, 240)}`,
+      );
+    }
     const payload = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
+      candidates?: Array<{
+        content?: { parts?: Array<{ text?: string }> };
+      }>;
     };
-    const raw = payload.choices?.[0]?.message?.content?.trim();
+    const raw = payload.candidates?.[0]?.content?.parts
+      ?.map((part) => part.text ?? '')
+      .join('')
+      .trim();
     if (!raw) throw new Error('The lease reader returned no terms');
     let parsed: unknown;
     try {
@@ -355,6 +363,43 @@ export class LeaseDocumentExtractionService {
       throw new Error('The lease reader returned invalid terms');
     }
     return this.normalizeTerms(parsed);
+  }
+
+  private async geminiParts(content: unknown) {
+    if (!Array.isArray(content)) return [{ text: String(content) }];
+    return Promise.all(
+      content.map(async (item) => {
+        const part = this.record(item);
+        if (part.type === 'text' && typeof part.text === 'string') {
+          return { text: part.text };
+        }
+        if (part.type === 'image_url') {
+          const image = this.record(part.image_url);
+          const url = image.url;
+          if (typeof url !== 'string') {
+            throw new Error('The lease image reference is invalid');
+          }
+          const { mimeType, data } = await this.imageData(url);
+          return { inlineData: { mimeType, data } };
+        }
+        return { text: JSON.stringify(item) };
+      }),
+    );
+  }
+
+  private async imageData(url: string) {
+    const dataUrl = url.match(/^data:([^;]+);base64,(.+)$/s);
+    if (dataUrl) {
+      return { mimeType: dataUrl[1], data: dataUrl[2] };
+    }
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Unable to read the lease image');
+    const mimeType =
+      response.headers.get('content-type')?.split(';')[0] ?? 'image/jpeg';
+    return {
+      mimeType,
+      data: Buffer.from(await response.arrayBuffer()).toString('base64'),
+    };
   }
 
   private mergeTerms(
@@ -480,10 +525,7 @@ export class LeaseDocumentExtractionService {
 
   private async pdfText(bytes: Uint8Array) {
     const pdfjs = await this.pdfEngine();
-    const pdf = await pdfjs.getDocument({
-      data: bytes,
-      disableWorker: true,
-    }).promise;
+    const pdf = await pdfjs.getDocument({ data: bytes }).promise;
     const pages: string[] = [];
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
       const page = await pdf.getPage(pageNumber);
@@ -497,10 +539,7 @@ export class LeaseDocumentExtractionService {
 
   private async pdfImages(bytes: Uint8Array) {
     const pdfjs = await this.pdfEngine();
-    const pdf = await pdfjs.getDocument({
-      data: bytes,
-      disableWorker: true,
-    }).promise;
+    const pdf = await pdfjs.getDocument({ data: bytes }).promise;
     const images: string[] = [];
     const pageCount = Math.min(pdf.numPages, PDF_VISION_PAGE_LIMIT);
     for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
