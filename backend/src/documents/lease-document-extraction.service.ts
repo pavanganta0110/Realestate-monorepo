@@ -5,7 +5,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createCanvas } from '@napi-rs/canvas';
 import { Prisma } from '@prisma/client';
 import { createClient } from '@supabase/supabase-js';
 import { PrismaService } from '../prisma/prisma.service';
@@ -15,8 +14,6 @@ const DOCUMENT_BUCKET = 'tenant-documents';
 const GEMINI_URL =
   'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent';
 const PDF_TEXT_LIMIT = 60_000;
-const PDF_VISION_PAGE_LIMIT = 9;
-const PDF_VISION_BATCH_SIZE = 3;
 const ACTIVE_LEASE_STATUSES = ['active', 'expiring', 'renewed'];
 
 export type ExtractedLeaseTerms = {
@@ -252,11 +249,19 @@ export class LeaseDocumentExtractionService {
       if (!response.ok)
         throw new Error('Unable to read the uploaded lease PDF');
       const bytes = new Uint8Array(await response.arrayBuffer());
-      const text = await this.pdfText(bytes);
-      if (!text.trim()) {
-        return this.extractScannedPdfTerms(bytes, apiKey);
-      }
-      content = [{ type: 'text', text: this.prompt(text) }];
+      content = [
+        {
+          type: 'text',
+          text: this.prompt(
+            'Read the attached lease PDF directly, including scanned pages, and extract only facts explicitly written in it.',
+          ),
+        },
+        {
+          type: 'pdf_data',
+          mimeType: 'application/pdf',
+          data: Buffer.from(bytes).toString('base64'),
+        },
+      ];
     } else if (contentType.startsWith('image/')) {
       content = [
         { type: 'text', text: this.prompt('Read the attached lease image.') },
@@ -270,49 +275,6 @@ export class LeaseDocumentExtractionService {
     }
 
     return this.requestTerms(content, apiKey);
-  }
-
-  private async extractScannedPdfTerms(
-    bytes: Uint8Array,
-    apiKey: string,
-  ): Promise<ExtractedLeaseTerms> {
-    const images = await this.pdfImages(bytes);
-    if (!images.length) {
-      throw new Error('No readable pages were found in this PDF.');
-    }
-
-    let merged = this.normalizeTerms({});
-    for (let index = 0; index < images.length; index += PDF_VISION_BATCH_SIZE) {
-      const pageImages = images.slice(index, index + PDF_VISION_BATCH_SIZE);
-      const content = [
-        {
-          type: 'text',
-          text: this.prompt(
-            `Read these scanned lease pages (pages ${index + 1}-${index + pageImages.length}) and extract only facts explicitly written in them.`,
-          ),
-        },
-        ...pageImages.map((url) => ({
-          type: 'image_url',
-          image_url: { url },
-        })),
-      ];
-      merged = this.mergeTerms(
-        merged,
-        await this.requestTerms(content, apiKey),
-      );
-    }
-
-    if (
-      !merged.startDate &&
-      !merged.endDate &&
-      merged.monthlyRent == null &&
-      merged.securityDeposit == null
-    ) {
-      throw new Error(
-        'No readable lease terms were found in this scanned PDF. Upload clearer page images or enter the lease terms manually.',
-      );
-    }
-    return merged;
   }
 
   private async requestTerms(
@@ -382,6 +344,18 @@ export class LeaseDocumentExtractionService {
           const { mimeType, data } = await this.imageData(url);
           return { inlineData: { mimeType, data } };
         }
+        if (
+          part.type === 'pdf_data' &&
+          typeof part.mimeType === 'string' &&
+          typeof part.data === 'string'
+        ) {
+          return {
+            inlineData: {
+              mimeType: part.mimeType,
+              data: part.data,
+            },
+          };
+        }
         return { text: JSON.stringify(item) };
       }),
     );
@@ -399,41 +373,6 @@ export class LeaseDocumentExtractionService {
     return {
       mimeType,
       data: Buffer.from(await response.arrayBuffer()).toString('base64'),
-    };
-  }
-
-  private mergeTerms(
-    current: ExtractedLeaseTerms,
-    next: ExtractedLeaseTerms,
-  ): ExtractedLeaseTerms {
-    const unique = (items: string[]) => [...new Set(items)].slice(0, 20);
-    const startDate = current.startDate ?? next.startDate;
-    const endDate = current.endDate ?? next.endDate;
-    return {
-      startDate,
-      endDate,
-      leaseTermMonths:
-        startDate && endDate
-          ? this.monthsBetween(
-              new Date(`${startDate}T00:00:00Z`),
-              new Date(`${endDate}T00:00:00Z`),
-            )
-          : (current.leaseTermMonths ?? next.leaseTermMonths),
-      monthlyRent: current.monthlyRent ?? next.monthlyRent,
-      securityDeposit: current.securityDeposit ?? next.securityDeposit,
-      rentDueDay: current.rentDueDay ?? next.rentDueDay,
-      gracePeriodDays: current.gracePeriodDays ?? next.gracePeriodDays,
-      lateFeeAmount: current.lateFeeAmount ?? next.lateFeeAmount,
-      recurringCharges: unique([
-        ...current.recurringCharges,
-        ...next.recurringCharges,
-      ]),
-      oneTimeFees: unique([...current.oneTimeFees, ...next.oneTimeFees]),
-      utilitiesResponsibility:
-        current.utilitiesResponsibility ?? next.utilitiesResponsibility,
-      renewalTerms: current.renewalTerms ?? next.renewalTerms,
-      notes: unique([...current.notes, ...next.notes]),
-      confidence: current.confidence ?? next.confidence,
     };
   }
 
@@ -521,61 +460,6 @@ export class LeaseDocumentExtractionService {
       );
     }
     return data.signedUrl;
-  }
-
-  private async pdfText(bytes: Uint8Array) {
-    const pdfjs = await this.pdfEngine();
-    const source = {
-      data: bytes,
-      disableWorker: true,
-    } as Parameters<typeof pdfjs.getDocument>[0];
-    const pdf = await pdfjs.getDocument(source).promise;
-    const pages: string[] = [];
-    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
-      const page = await pdf.getPage(pageNumber);
-      const content = await page.getTextContent();
-      pages.push(
-        content.items.map((item) => ('str' in item ? item.str : '')).join(' '),
-      );
-    }
-    return pages.join('\n');
-  }
-
-  private async pdfImages(bytes: Uint8Array) {
-    const pdfjs = await this.pdfEngine();
-    const source = {
-      data: bytes,
-      disableWorker: true,
-    } as Parameters<typeof pdfjs.getDocument>[0];
-    const pdf = await pdfjs.getDocument(source).promise;
-    const images: string[] = [];
-    const pageCount = Math.min(pdf.numPages, PDF_VISION_PAGE_LIMIT);
-    for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
-      const page = await pdf.getPage(pageNumber);
-      const viewport = page.getViewport({ scale: 1.5 });
-      const canvas = createCanvas(
-        Math.ceil(viewport.width),
-        Math.ceil(viewport.height),
-      );
-      await page.render({
-        canvasContext: canvas.getContext(
-          '2d',
-        ) as unknown as CanvasRenderingContext2D,
-        viewport,
-      }).promise;
-      images.push(
-        `data:image/jpeg;base64,${canvas
-          .toBuffer('image/jpeg', 82)
-          .toString('base64')}`,
-      );
-    }
-    return images;
-  }
-
-  private async pdfEngine() {
-    // PDF.js disables workers by default in Node.js. Do not attach the browser
-    // worker here: Node's worker transfer path cannot clone PDF.js objects.
-    return import('pdfjs-dist/legacy/build/pdf.mjs');
   }
 
   private contentType(name: string) {
