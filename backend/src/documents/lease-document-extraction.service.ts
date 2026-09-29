@@ -13,7 +13,7 @@ import { ApplyLeaseTermsDto } from './dto/tenant-document.dto';
 
 const DOCUMENT_BUCKET = 'tenant-documents';
 const GEMINI_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent';
 const PDF_TEXT_LIMIT = 60_000;
 const PDF_VISION_PAGE_LIMIT = 9;
 const PDF_VISION_BATCH_SIZE = 3;
