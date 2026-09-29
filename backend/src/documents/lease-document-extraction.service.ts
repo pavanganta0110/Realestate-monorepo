@@ -10,10 +10,6 @@ import { Prisma } from '@prisma/client';
 import { createClient } from '@supabase/supabase-js';
 import { PrismaService } from '../prisma/prisma.service';
 import { ApplyLeaseTermsDto } from './dto/tenant-document.dto';
-// pdfjs-dist does not publish declarations for the worker entry. Keep this a
-// static import so the Vercel function bundles the worker with the API.
-// @ts-expect-error pdfjs-dist worker entry has no published declaration.
-import * as pdfjsWorker from 'pdfjs-dist/legacy/build/pdf.worker.mjs';
 
 const DOCUMENT_BUCKET = 'tenant-documents';
 const GEMINI_URL =
@@ -570,6 +566,16 @@ export class LeaseDocumentExtractionService {
 
   private async pdfEngine() {
     const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    // Load the ESM worker only when lease extraction actually runs. A static
+    // import is compiled to require() by the Nest/Vercel CommonJS bundle and
+    // crashes the entire API because the worker is ESM-only.
+    const loadModule = new Function(
+      'specifier',
+      'return import(specifier);',
+    ) as (specifier: string) => Promise<unknown>;
+    const pdfjsWorker = await loadModule(
+      'pdfjs-dist/legacy/build/pdf.worker.mjs',
+    );
     (globalThis as typeof globalThis & { pdfjsWorker?: unknown }).pdfjsWorker =
       pdfjsWorker;
     return pdfjs;
