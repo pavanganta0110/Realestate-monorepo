@@ -566,16 +566,10 @@ export class LeaseDocumentExtractionService {
 
   private async pdfEngine() {
     const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
-    // Load the ESM worker only when lease extraction actually runs. A static
-    // import is compiled to require() by the Nest/Vercel CommonJS bundle and
-    // crashes the entire API because the worker is ESM-only.
-    const loadModule = new Function(
-      'specifier',
-      'return import(specifier);',
-    ) as (specifier: string) => Promise<unknown>;
-    const pdfjsWorker = await loadModule(
-      'pdfjs-dist/legacy/build/pdf.worker.mjs',
-    );
+    // Keep the ESM worker lazy so it cannot crash API startup, while keeping
+    // the literal import path so Vercel includes the worker in the bundle.
+    // @ts-expect-error pdfjs-dist worker entry has no published declaration.
+    const pdfjsWorker = await import('pdfjs-dist/legacy/build/pdf.worker.mjs');
     (globalThis as typeof globalThis & { pdfjsWorker?: unknown }).pdfjsWorker =
       pdfjsWorker;
     return pdfjs;
