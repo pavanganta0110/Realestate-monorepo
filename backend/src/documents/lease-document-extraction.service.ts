@@ -480,7 +480,10 @@ export class LeaseDocumentExtractionService {
 
   private async pdfText(bytes: Uint8Array) {
     const pdfjs = await this.pdfEngine();
-    const pdf = await pdfjs.getDocument({ data: bytes }).promise;
+    const pdf = await pdfjs.getDocument({
+      data: bytes,
+      disableWorker: true,
+    }).promise;
     const pages: string[] = [];
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
       const page = await pdf.getPage(pageNumber);
@@ -494,7 +497,10 @@ export class LeaseDocumentExtractionService {
 
   private async pdfImages(bytes: Uint8Array) {
     const pdfjs = await this.pdfEngine();
-    const pdf = await pdfjs.getDocument({ data: bytes }).promise;
+    const pdf = await pdfjs.getDocument({
+      data: bytes,
+      disableWorker: true,
+    }).promise;
     const images: string[] = [];
     const pageCount = Math.min(pdf.numPages, PDF_VISION_PAGE_LIMIT);
     for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
@@ -520,13 +526,10 @@ export class LeaseDocumentExtractionService {
   }
 
   private async pdfEngine() {
-    // Keep both ESM entries as literal dynamic imports so Vercel bundles them
-    // without rewriting the PDF.js worker to CommonJS require().
+    // Serverless Node functions do not need a browser PDF worker. Keeping the
+    // engine import worker-free also prevents Vercel from trying to bundle the
+    // browser worker as a separate runtime module.
     const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
-    // @ts-expect-error pdfjs-dist does not publish declarations for this worker entry.
-    const pdfjsWorker = await import('pdfjs-dist/legacy/build/pdf.worker.mjs');
-    (globalThis as typeof globalThis & { pdfjsWorker?: unknown }).pdfjsWorker =
-      pdfjsWorker;
     return pdfjs;
   }
 
