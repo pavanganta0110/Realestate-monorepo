@@ -525,7 +525,10 @@ export class LeaseDocumentExtractionService {
 
   private async pdfText(bytes: Uint8Array) {
     const pdfjs = await this.pdfEngine();
-    const pdf = await pdfjs.getDocument({ data: bytes }).promise;
+    const pdf = await pdfjs.getDocument({
+      data: bytes,
+      disableWorker: true,
+    }).promise;
     const pages: string[] = [];
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
       const page = await pdf.getPage(pageNumber);
@@ -539,7 +542,10 @@ export class LeaseDocumentExtractionService {
 
   private async pdfImages(bytes: Uint8Array) {
     const pdfjs = await this.pdfEngine();
-    const pdf = await pdfjs.getDocument({ data: bytes }).promise;
+    const pdf = await pdfjs.getDocument({
+      data: bytes,
+      disableWorker: true,
+    }).promise;
     const images: string[] = [];
     const pageCount = Math.min(pdf.numPages, PDF_VISION_PAGE_LIMIT);
     for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
