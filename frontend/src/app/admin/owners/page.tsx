@@ -470,12 +470,7 @@ export default function AdminOwnersPage() {
                   <Button
                     variant="outline"
                     className="border-destructive/30 text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                    disabled={
-                      deletingOwnerId !== null ||
-                      owner._count.properties > 0 ||
-                      (owner._count.payments ?? 0) > 0 ||
-                      Boolean(owner.stripeConnectedAccountId)
-                    }
+                    disabled={deletingOwnerId !== null}
                     title={
                       owner._count.properties > 0 ||
                       (owner._count.payments ?? 0) > 0 ||
