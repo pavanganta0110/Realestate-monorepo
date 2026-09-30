@@ -35,7 +35,14 @@ async function apiFetch(endpoint: string, options: RequestInit = {}) {
     throw new Error(message);
   }
 
-  return response.json();
+  const responseText = await response.text();
+  if (!responseText.trim()) return null;
+
+  try {
+    return JSON.parse(responseText);
+  } catch {
+    throw new Error("API returned an invalid response");
+  }
 }
 
 export const api = {
