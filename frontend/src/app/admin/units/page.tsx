@@ -84,27 +84,36 @@ export default function AdminUnits() {
     creatingRef.current = true;
     setCreating(true);
     try {
+      const { customAmenities, ...unitFields } = form;
       const payload = {
-        ...form,
-        floor: form.floor || undefined,
-        bedrooms: form.bedrooms === "" ? undefined : Number(form.bedrooms),
-        bathrooms: form.bathrooms === "" ? undefined : Number(form.bathrooms),
+        ...unitFields,
+        floor: unitFields.floor || undefined,
+        bedrooms:
+          unitFields.bedrooms === "" ? undefined : Number(unitFields.bedrooms),
+        bathrooms:
+          unitFields.bathrooms === ""
+            ? undefined
+            : Number(unitFields.bathrooms),
         squareFeet:
-          form.squareFeet === "" ? undefined : Number(form.squareFeet),
+          unitFields.squareFeet === ""
+            ? undefined
+            : Number(unitFields.squareFeet),
         rentAmount:
-          form.rentAmount === "" ? undefined : Number(form.rentAmount),
+          unitFields.rentAmount === ""
+            ? undefined
+            : Number(unitFields.rentAmount),
         depositAmount:
-          form.depositAmount === ""
-            ? form.rentAmount === ""
+          unitFields.depositAmount === ""
+            ? unitFields.rentAmount === ""
               ? undefined
-              : Number(form.rentAmount)
-            : Number(form.depositAmount),
-        availableDate: form.availableDate
-          ? new Date(form.availableDate).toISOString()
+              : Number(unitFields.rentAmount)
+            : Number(unitFields.depositAmount),
+        availableDate: unitFields.availableDate
+          ? new Date(unitFields.availableDate).toISOString()
           : undefined,
         amenities: [
-          ...form.amenities,
-          ...form.customAmenities
+          ...unitFields.amenities,
+          ...customAmenities
             .split(",")
             .map((amenity) => amenity.trim())
             .filter(Boolean),
