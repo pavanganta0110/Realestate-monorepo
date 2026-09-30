@@ -1,7 +1,7 @@
 "use client";
 
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, RefreshCw, ShieldCheck, UserPlus } from "lucide-react";
+import { Loader2, RefreshCw, Send, ShieldCheck, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,6 +37,7 @@ export default function TenantAdministratorsPage() {
   const invitingRef = useRef(false);
   const [staff, setStaff] = useState<StaffAccount[]>([]);
   const [loadingStaff, setLoadingStaff] = useState(true);
+  const [resendingId, setResendingId] = useState<string | null>(null);
 
   const loadStaff = useCallback(async () => {
     setLoadingStaff(true);
@@ -71,6 +72,21 @@ export default function TenantAdministratorsPage() {
     } finally {
       invitingRef.current = false;
       setInviting(false);
+    }
+  };
+
+  const resendInvitation = async (account: StaffAccount) => {
+    if (resendingId) return;
+
+    setResendingId(account.id);
+    try {
+      await api.post(`/auth/tenant-admin-invite/${account.id}/resend`, {});
+      toast.success(`Invitation sent again to ${account.email}`);
+      await loadStaff();
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Unable to resend invitation"));
+    } finally {
+      setResendingId(null);
     }
   };
 
@@ -225,6 +241,22 @@ export default function TenantAdministratorsPage() {
                           ? `Last sign-in ${new Date(account.lastSignInAt).toLocaleDateString()}`
                           : "Not signed in yet"}
                       </span>
+                      {account.status === "INVITED" ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => void resendInvitation(account)}
+                          disabled={resendingId !== null}
+                        >
+                          {resendingId === account.id ? (
+                            <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+                          ) : (
+                            <Send className="size-3.5" aria-hidden="true" />
+                          )}
+                          Send again
+                        </Button>
+                      ) : null}
                     </div>
                   </div>
                 );

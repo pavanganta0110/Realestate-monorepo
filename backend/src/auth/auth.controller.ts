@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   Ip,
+  Param,
   Post,
   Request,
   UseGuards,
@@ -87,6 +88,17 @@ export class AuthController {
     @Request() request: RequiredAuthenticatedRequest,
   ) {
     return this.tenantAdminProvisioning.invite(body, request.user.sub);
+  }
+
+  @Post('tenant-admin-invite/:id/resend')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPER_ADMIN)
+  resendTenantAdminInvite(
+    @Param('id') id: string,
+    @Request() request: RequiredAuthenticatedRequest,
+  ) {
+    return this.tenantAdminProvisioning.resendInvitation(id, request.user.sub);
   }
 
   @Get('tenant-administrators')

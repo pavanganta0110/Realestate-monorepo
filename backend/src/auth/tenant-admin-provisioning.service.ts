@@ -104,6 +104,79 @@ export class TenantAdminProvisioningService {
     }
   }
 
+  async resendInvitation(userId: string, superAdminId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        authUserId: true,
+        email: true,
+        role: true,
+        status: true,
+      },
+    });
+    if (!user || user.role !== Role.TENANT_ADMIN) {
+      throw new BadRequestException('Tenant administrator account not found');
+    }
+    if (user.status !== UserStatus.INVITED) {
+      throw new BadRequestException(
+        'A new invitation can only be sent while the account is pending.',
+      );
+    }
+
+    const redirectTo = `${getPortalUrls(this.configService).rentalAdmin}/auth/reset-password`;
+    const admin = this.adminClient().auth.admin;
+    const { data: authUserData } = await admin.getUserById(user.authUserId);
+    const metadata = authUserData.user?.user_metadata;
+    const firstName =
+      metadata && typeof metadata.firstName === 'string'
+        ? metadata.firstName
+        : metadata && typeof metadata.first_name === 'string'
+          ? metadata.first_name
+          : '';
+    const lastName =
+      metadata && typeof metadata.lastName === 'string'
+        ? metadata.lastName
+        : metadata && typeof metadata.last_name === 'string'
+          ? metadata.last_name
+          : '';
+    const { data: link, error } = await admin.generateLink({
+      type: 'recovery',
+      email: user.email,
+      options: { redirectTo },
+    });
+    const actionUrl = createAuthActionUrl(redirectTo, link.properties);
+    if (error || !actionUrl) {
+      throw new BadRequestException(
+        error?.message || 'Unable to create a new administrator invitation',
+      );
+    }
+
+    await this.emails.sendTemplate(
+      user.email,
+      'rental_admin.invited',
+      {
+        name: `${firstName} ${lastName}`.trim() || user.email,
+        url: actionUrl,
+      },
+      user.id,
+    );
+    await this.prisma.auditLog.create({
+      data: {
+        userId: superAdminId,
+        action: 'TENANT_ADMIN_INVITATION_RESENT',
+        resource: 'user',
+        resourceId: user.id,
+        newValue: JSON.stringify({ email: user.email, role: user.role }),
+      },
+    });
+
+    return {
+      success: true,
+      message: 'Tenant administrator invitation sent again',
+    };
+  }
+
   async listStaff() {
     const users = await this.prisma.user.findMany({
       where: { role: { in: STAFF_ROLES } },
