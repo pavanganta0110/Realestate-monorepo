@@ -166,6 +166,10 @@ abstract class PortalESignaturesController {
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(Role.TENANT)
 export class TenantESignaturesController extends PortalESignaturesController {
+  constructor(signatures: ESignaturesService) {
+    super(signatures);
+  }
+
   protected readonly targetType: ESignatureTargetType =
     ESignatureTargetType.TENANT;
 
@@ -217,6 +221,10 @@ export class TenantESignaturesController extends PortalESignaturesController {
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(Role.AGENT)
 export class AgentESignaturesController extends TenantESignaturesController {
+  constructor(signatures: ESignaturesService) {
+    super(signatures);
+  }
+
   protected readonly targetType: ESignatureTargetType =
     ESignatureTargetType.AGENT;
 }
