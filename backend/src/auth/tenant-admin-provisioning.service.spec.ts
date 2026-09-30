@@ -166,7 +166,7 @@ describe('TenantAdminProvisioningService', () => {
         name: 'Pending Admin',
         url: 'https://rentals.example.com/auth/reset-password?token_hash=recovery-token&type=recovery',
       },
-      'rental-admin-2',
+      expect.stringMatching(/^rental-admin-2\/resend\/[0-9a-f-]{36}$/),
     );
     expect(prisma.auditLog.create).toHaveBeenCalledWith({
       data: {

@@ -6,6 +6,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { createClient } from '@supabase/supabase-js';
 import { Role, UserStatus } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
 import { getPortalUrls } from '../common/config/portal-urls';
 import { EmailsService } from '../emails/emails.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -159,7 +160,7 @@ export class TenantAdminProvisioningService {
         name: `${firstName} ${lastName}`.trim() || user.email,
         url: actionUrl,
       },
-      user.id,
+      `${user.id}/resend/${randomUUID()}`,
     );
     await this.prisma.auditLog.create({
       data: {
