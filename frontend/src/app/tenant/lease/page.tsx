@@ -40,10 +40,26 @@ type ActiveLease = {
   unit: { unitNumber: string; property: { name: string } };
 };
 
+type LeaseDocument = {
+  id: string;
+  name: string;
+  type: string;
+  createdAt: string;
+  extractionStatus?: string | null;
+};
+
+function isSafeDownloadUrl(value: unknown): value is string {
+  return typeof value === "string" && value.startsWith("https://");
+}
+
 export default function TenantLease() {
   const router = useRouter();
   const [lease, setLease] = useState<ActiveLease | null>(null);
   const [leaseEnvelope, setLeaseEnvelope] = useState<ESignatureEnvelope | null>(
+    null,
+  );
+  const [leaseDocuments, setLeaseDocuments] = useState<LeaseDocument[]>([]);
+  const [openingDocumentId, setOpeningDocumentId] = useState<string | null>(
     null,
   );
   const [loading, setLoading] = useState(true);
@@ -54,10 +70,14 @@ export default function TenantLease() {
       api.get("/tenant/e-signatures?documentType=LEASE&limit=1") as Promise<
         CursorPage<ESignatureEnvelope>
       >,
+      api.get("/tenant/portal/documents") as Promise<LeaseDocument[]>,
     ])
-      .then(([activeLease, signatures]) => {
+      .then(([activeLease, signatures, documents]) => {
         setLease(activeLease);
         setLeaseEnvelope(signatures.items[0] ?? null);
+        setLeaseDocuments(
+          (documents ?? []).filter((document) => document.type === "LEASE"),
+        );
       })
       .catch((error: unknown) =>
         toast.error(
@@ -66,6 +86,23 @@ export default function TenantLease() {
       )
       .finally(() => setLoading(false));
   }, []);
+
+  const openLeaseDocument = async (documentId: string) => {
+    setOpeningDocumentId(documentId);
+    try {
+      const result = (await api.get(
+        `/tenant/portal/documents/${documentId}/download-url`,
+      )) as { url?: unknown };
+      if (!isSafeDownloadUrl(result.url)) {
+        throw new Error("Download unavailable");
+      }
+      window.open(result.url, "_blank", "noopener,noreferrer");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Unable to open lease document"));
+    } finally {
+      setOpeningDocumentId(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -187,6 +224,60 @@ export default function TenantLease() {
                   </p>
                 </div>
               </div>
+
+              <Card className="border-border bg-card shadow-sm rounded-[1.25rem]">
+                <CardHeader className="p-6 border-b border-border">
+                  <CardTitle className="text-lg font-bold font-heading tracking-tight text-foreground">
+                    Uploaded lease documents
+                  </CardTitle>
+                  <CardDescription>
+                    Your uploaded lease records are available here for secure
+                    viewing.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-6">
+                  {leaseDocuments.length > 0 ? (
+                    <div className="space-y-3">
+                      {leaseDocuments.map((document) => (
+                        <div
+                          key={document.id}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-border bg-secondary/30 p-4"
+                        >
+                          <div className="flex min-w-0 items-center gap-3">
+                            <FileText className="h-5 w-5 shrink-0 text-primary" />
+                            <div className="min-w-0">
+                              <p className="truncate font-semibold text-foreground">
+                                {document.name}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Added {new Date(document.createdAt).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            disabled={openingDocumentId === document.id}
+                            onClick={() => void openLeaseDocument(document.id)}
+                            className="w-full sm:w-auto rounded-xl"
+                          >
+                            {openingDocumentId === document.id ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <Download className="mr-2 h-4 w-4" />
+                            )}
+                            Open lease
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No uploaded lease document is linked to this resident yet.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
 
               <div className="p-8 border border-border rounded-[1.25rem] bg-secondary/30 flex flex-col md:flex-row items-center justify-between gap-6 group hover:border-primary/30 transition-[background-color,color,border-color,box-shadow,transform,opacity]">
                 <div className="flex items-center gap-6">
