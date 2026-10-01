@@ -189,8 +189,15 @@
 @media (prefers-reduced-motion: no-preference) { .skeleton { animation: skeleton-shimmer 1.5s linear infinite; } }
 
 @media (max-width: 639px) {
+  .portal-main { padding: 1rem; }
+  .portal-main [data-slot="card-header"].flex-row { flex-wrap: wrap; }
+  .portal-main [data-slot="card-header"].flex-row > :last-child { margin-left: auto; }
   .portal-main [data-slot="card-header"], .portal-main [data-slot="card-content"] { padding-inline: 1rem; }
   .portal-main [data-slot="dialog-content"] { max-height: calc(100dvh - 1rem); overflow-y: auto; }
+}
+
+@media (min-width: 640px) and (max-width: 1023px) {
+  .portal-main { padding: 1.25rem; }
 }
 @keyframes skeleton-shimmer { 50% { opacity: 0.58; } }
 

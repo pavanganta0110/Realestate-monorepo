@@ -87,7 +87,7 @@ export function PropertySlideshow({
           controlsAreDark ? "bg-brand text-white" : "border-x border-b border-border bg-card text-foreground",
         )}
       >
-        <p aria-live={paused || reducedMotion ? "polite" : "off"} className={cn("text-sm font-medium", controlsAreDark ? "text-white/78" : "text-muted-foreground")}>
+        <p aria-live={paused || reducedMotion ? "polite" : "off"} className={cn("min-w-0 flex-1 break-words text-sm font-medium", controlsAreDark ? "text-white/78" : "text-muted-foreground")}>
           {slides[activeIndex]?.caption}
         </p>
         <div className="flex shrink-0 items-center gap-1">

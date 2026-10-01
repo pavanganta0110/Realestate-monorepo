@@ -2,7 +2,7 @@ import React from "react"
 
 export const Logo = ({ className = "h-12 w-auto", ...props }) => {
   return (
-    <div className={`flex items-center gap-3 ${className}`} {...props}>
+    <div className={`flex min-w-0 items-center gap-3 ${className}`} {...props}>
       <svg 
         viewBox="0 0 100 100" 
         fill="none" 
@@ -21,9 +21,9 @@ export const Logo = ({ className = "h-12 w-auto", ...props }) => {
         <path d="M75 50 V42 H82 V50" fill="currentColor" opacity="0.72" />
         <path d="M85 50 V30 H92 V50" fill="currentColor" />
       </svg>
-      <div className="flex flex-col leading-none">
-        <span className="text-xl font-bold tracking-tight text-current uppercase font-heading">Coach Johnson</span>
-        <span className="text-[10px] font-bold tracking-[0.3em] text-current opacity-70 uppercase font-heading">Realty Group</span>
+      <div className="min-w-0 flex flex-col leading-none">
+        <span className="truncate text-xl font-bold tracking-tight text-current uppercase font-heading">Coach Johnson</span>
+        <span className="truncate text-[10px] font-bold tracking-[0.3em] text-current opacity-70 uppercase font-heading">Realty Group</span>
       </div>
     </div>
   )

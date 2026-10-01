@@ -126,8 +126,10 @@ export function PortalSidebar({
 
   return (
     <>
-      <header className="sticky top-0 z-40 flex min-h-16 items-center justify-between border-b border-sidebar-border bg-sidebar/96 px-4 backdrop-blur-xl lg:hidden" style={{ viewTransitionName: "persistent-nav" }}>
-        <Logo className="h-8 text-sidebar-foreground" />
+      <header className="sticky top-0 z-40 flex min-h-16 items-center justify-between gap-2 border-b border-sidebar-border bg-sidebar/96 px-3 backdrop-blur-xl sm:px-4 lg:hidden" style={{ viewTransitionName: "persistent-nav" }}>
+        <div className="min-w-0 flex-1">
+          <Logo className="h-8 max-w-full text-sidebar-foreground" />
+        </div>
         <div className="flex items-center gap-1">
           <ThemeToggle />
           <Button type="button" variant="ghost" size="icon" aria-label={open ? "Close portal navigation" : "Open portal navigation"} aria-expanded={open} aria-controls="portal-mobile-navigation" onClick={() => setOpen((value) => !value)}>

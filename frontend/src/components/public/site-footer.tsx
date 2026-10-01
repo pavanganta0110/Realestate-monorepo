@@ -40,6 +40,9 @@ export function SiteFooter() {
             <Link className="hover:text-white" href="/#portal-access">
               Portal access
             </Link>
+            <Link className="hover:text-white" href="/privacy">
+              Privacy policy
+            </Link>
           </nav>
         </div>
         <div>

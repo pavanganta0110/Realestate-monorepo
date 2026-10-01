@@ -27,14 +27,17 @@ export function SiteHeader() {
       className="sticky top-0 z-40 border-b border-white/10 bg-brand py-3 text-white"
       style={{ viewTransitionName: "persistent-nav" }}
     >
-      <div className="public-container flex min-h-12 items-center justify-between gap-4">
-        <Link
-          href="/"
-          aria-label="Coach Johnson Realty home"
-          onClick={() => setOpen(false)}
-        >
-          <Logo className="h-9 text-white sm:h-10" />
-        </Link>
+      <div className="public-container flex min-h-12 items-center justify-between gap-3 sm:gap-4">
+        <div className="min-w-0 flex-1">
+          <Link
+            href="/"
+            aria-label="Coach Johnson Realty home"
+            onClick={() => setOpen(false)}
+            className="inline-flex max-w-full"
+          >
+            <Logo className="h-9 max-w-full text-white sm:h-10" />
+          </Link>
+        </div>
         <nav
           aria-label="Primary navigation"
           className="hidden items-center gap-1 lg:flex"

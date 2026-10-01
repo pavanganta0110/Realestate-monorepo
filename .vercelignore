@@ -4,6 +4,7 @@
 **/node_modules
 **/.next
 **/coverage
+**/*.tsbuildinfo
 backend/.env
 backend/.env.local
 backend/.vercel
