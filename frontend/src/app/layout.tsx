@@ -41,8 +41,8 @@ export const metadata: Metadata = {
   creator: SITE_NAME,
   publisher: SITE_NAME,
   icons: {
-    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
-    shortcut: ["/icon.svg"],
+    icon: [{ url: "/icon.svg?v=2", type: "image/svg+xml" }],
+    shortcut: ["/icon.svg?v=2"],
   },
   alternates: { canonical: "/" },
   openGraph: {
