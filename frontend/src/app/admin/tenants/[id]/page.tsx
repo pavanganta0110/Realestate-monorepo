@@ -28,7 +28,7 @@ export default function TenantDetailPage() {
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [category, setCategory] = useState("General notice");
-  const [templateKey, setTemplateKey] = useState<"tenant.custom_notice" | "tenant.dashboard_sign_in" | "rent.reminder" | "rent.late_notice">("tenant.custom_notice");
+  const [templateKey, setTemplateKey] = useState<"tenant.custom_notice" | "tenant.dashboard_sign_in" | "tenant.portal_invite" | "rent.reminder" | "rent.late_notice">("tenant.custom_notice");
   const [sending, setSending] = useState(false);
   const [chatBody, setChatBody] = useState("");
   const [editOpen, setEditOpen] = useState(false);
@@ -90,6 +90,13 @@ export default function TenantDetailPage() {
     event.preventDefault();
     setSending(true);
     try {
+      if (templateKey === "tenant.portal_invite") {
+        await api.post(`/auth/tenant-portal-invite/${id}`, {});
+        toast.success("Portal sign-up email sent");
+        setCompose(false);
+        await load();
+        return;
+      }
       const requestId = crypto.randomUUID();
       await api.post("/admin/emails/send", {
         audienceType: "tenant",
@@ -401,7 +408,8 @@ export default function TenantDetailPage() {
               <Label htmlFor="email-template">Email type</Label>
               <select id="email-template" className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={templateKey} onChange={(e) => setTemplateKey(e.target.value as typeof templateKey)}>
                 <option value="tenant.custom_notice">Custom operational notice</option>
-                <option value="tenant.dashboard_sign_in">Dashboard sign-in</option>
+                {tenant.user ? <option value="tenant.dashboard_sign_in">Dashboard sign-in</option> : null}
+                {!tenant.user || tenant.user.status.toUpperCase() === "INVITED" ? <option value="tenant.portal_invite">Dashboard sign-up / account setup</option> : null}
                 <option value="rent.reminder">Rent reminder (server uses current charge)</option>
                 <option value="rent.late_notice">Late rent notice (server uses current balance)</option>
               </select>
@@ -423,7 +431,7 @@ export default function TenantDetailPage() {
               </>
             ) : (
               <p className="rounded-lg bg-secondary/50 p-3 text-sm text-muted-foreground">
-                {templateKey === "tenant.dashboard_sign_in" ? "This sends the tenant a link to the dashboard sign-in page. The tenant must already have a linked portal account." : "Financial amounts and due dates are resolved from this tenant’s current rent charge on the server. Sending is unavailable if no unpaid rent charge exists."}
+                {templateKey === "tenant.dashboard_sign_in" ? "This sends the tenant a link to the dashboard sign-in page." : templateKey === "tenant.portal_invite" ? "This creates or refreshes the tenant’s portal account and sends a secure link to set their password." : "Financial amounts and due dates are resolved from this tenant’s current rent charge on the server. Sending is unavailable if no unpaid rent charge exists."}
               </p>
             )}
             <div className="flex justify-end gap-2">

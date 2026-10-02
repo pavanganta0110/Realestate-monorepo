@@ -6,6 +6,7 @@ import { JwtAuthGuard } from './jwt-auth.guard';
 import { RolesGuard } from './roles.guard';
 import { PasswordSecurityService } from './password-security.service';
 import { TenantAdminProvisioningService } from './tenant-admin-provisioning.service';
+import { TenantPortalInvitationService } from './tenant-portal-invitation.service';
 
 @Global()
 @Module({
@@ -16,6 +17,7 @@ import { TenantAdminProvisioningService } from './tenant-admin-provisioning.serv
     RolesGuard,
     PasswordSecurityService,
     TenantAdminProvisioningService,
+    TenantPortalInvitationService,
   ],
   controllers: [AuthController],
   exports: [AuthService, JwtAuthGuard, RolesGuard],

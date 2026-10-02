@@ -21,6 +21,7 @@ import { LoginDto } from './dto/login.dto';
 import { TenantAdminInviteDto } from './dto/tenant-admin-invite.dto';
 import { TenantInviteDto } from './dto/tenant-invite.dto';
 import { TenantAdminProvisioningService } from './tenant-admin-provisioning.service';
+import { TenantPortalInvitationService } from './tenant-portal-invitation.service';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 import type { RequiredAuthenticatedRequest } from './authenticated-request';
 
@@ -29,6 +30,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly tenantAdminProvisioning: TenantAdminProvisioningService,
+    private readonly tenantPortalInvitation: TenantPortalInvitationService,
   ) {}
 
   @Post('login')
@@ -77,6 +79,17 @@ export class AuthController {
     @Request() request: RequiredAuthenticatedRequest,
   ) {
     return this.authService.inviteTenant(body, request.user.sub);
+  }
+
+  @Post('tenant-portal-invite/:tenantId')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN)
+  inviteExistingTenantPortal(
+    @Param('tenantId') tenantId: string,
+    @Request() request: RequiredAuthenticatedRequest,
+  ) {
+    return this.tenantPortalInvitation.invite(tenantId, request.user.sub);
   }
 
   @Post('tenant-admin-invite')
